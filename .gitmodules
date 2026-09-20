@@ -1,0 +1,6 @@
+[submodule "lib/secp256k1"]
+	path = lib/secp256k1
+	url = https://github.com/diybitcoinhardware/secp256k1-embedded.git
+[submodule "lib/libwally-embedded"]
+	path = lib/libwally-embedded
+	url = https://github.com/diybitcoinhardware/libwally-embedded.git
