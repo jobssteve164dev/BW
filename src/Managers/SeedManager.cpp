@@ -26,25 +26,25 @@ void SeedManager::manageMnemonicRead(std::vector<std::string>& mnemonic) {
 
   do {
     // Show the 24 words
-    display.displayTopBar("Write Seed", false, false, true);
+    display.displayTopBar("抄写助记词", false, false, true);
     mnemonicSelection.select(mnemonic);
 
     // Verify Backup
-    mnemonicVerification = confirmationSelection.select(" Verify backup?");
+    mnemonicVerification = confirmationSelection.select("验证备份？");
     if (mnemonicVerification) {
       // Random num for a word index
       randomNumber = rand() % mnemonic.size();
       // Ask user the correct word for the given index
-      display.displayTopBar("Verify Seed", false, false, true);
-      auto question = "What's the " + std::to_string(randomNumber + 1) + " word ?";
+      display.displayTopBar("验证助记词", false, false, true);
+      auto question = "输入第 " + std::to_string(randomNumber + 1) + " 个单词";
       word = stringPromptSelection.select(question, 8);
     }
 
     // User want to verify the seed but words are different
     if (mnemonicVerification && word != mnemonic[randomNumber]) {
-      if (!word.empty()) {display.displaySubMessage("Wrong answer", 50, 2000);}
+      if (!word.empty()) {display.displaySubMessage("答案错误", 50, 2000);}
     } else {
-      display.displaySubMessage("Seed backup done", 37, 2000);
+      display.displaySubMessage("助记词已备份", 37, 2000);
       mnemonicIsBackedUp = true;
     }
   } while (!mnemonicIsBackedUp);
@@ -88,7 +88,7 @@ bool SeedManager::manageMnemonicRestore(size_t wordCount) {
     // Get each word
     auto mnemonic = manageMnemonicWrite(wordCount);
     if (mnemonic.empty()) { // invalid mnemonic will return empty object
-      display.displaySubMessage("Invalid mnemonic", 41, 2000);
+      display.displaySubMessage("助记词无效", 41, 2000);
       return false;
     }
 
@@ -97,9 +97,9 @@ bool SeedManager::manageMnemonicRestore(size_t wordCount) {
     auto mnemonicWordList = cryptoService.mnemonicStringToWordList(mnemonicString);
     auto privateKey = cryptoService.mnemonicToPrivateKey(mnemonicString);
 
-    // Valid mnemonic
-    display.displayTopBar("Restore seed", false, false, true, 5);
-    display.displaySubMessage("Valid mnemonic", 45, 2000);
+    // 助记词有效
+    display.displayTopBar("恢复助记词", false, false, true, 5);
+    display.displaySubMessage("助记词有效", 45, 2000);
 
     // Passphrase
     auto passphrase = managePassphrase(); // return "" in case user doesn't want passphrase
@@ -108,13 +108,13 @@ bool SeedManager::manageMnemonicRestore(size_t wordCount) {
     manageRfidSave(privateKey);
 
     // Prompt for a wallet name
-    display.displayTopBar("Wallet", false, false, true);
-    auto walletName = stringPromptSelection.select("Enter wallet name");
+    display.displayTopBar("钱包", false, false, true);
+    auto walletName = stringPromptSelection.select("输入钱包名称");
     if (walletName.empty()) {return false;}
     auto wallet = manageBitcoinWalletCreation(mnemonicString, passphrase, walletName);
 
     // Save wallet to SD if any
-    display.displaySubMessage("Loading", 83);
+    display.displaySubMessage("正在加载", 83);
     sdService.begin(); // SD card start
     manageSdSave(wallet);
 
@@ -134,13 +134,13 @@ std::vector<std::string> SeedManager::manageMnemonicLoading(size_t wordCount) {
     // Get the words from user
     auto mnemonic = manageMnemonicWrite(wordCount);
     if (mnemonic.empty()) { // not valid mnemonic will return empty object
-        display.displaySubMessage("Invalid mnemonic", 41, 2000);
+        display.displaySubMessage("助记词无效", 41, 2000);
         return {};
     }
 
     // At this point mnemonic is valid
-    display.displayTopBar("Loading seed", false, false, true, 5);
-    display.displaySubMessage("Valid mnemonic", 45, 2000);
+    display.displayTopBar("加载助记词", false, false, true, 5);
+    display.displaySubMessage("助记词有效", 45, 2000);
 
     // Get Wallet
     auto wallet = selectionContext.getCurrentSelectedWallet();
@@ -149,16 +149,16 @@ std::vector<std::string> SeedManager::manageMnemonicLoading(size_t wordCount) {
     auto passphrase = managePassphrase();
 
     // Derive PublicKey to check if seed match
-    display.displaySubMessage("Loading", 83);
+    display.displaySubMessage("正在加载", 83);
     auto mnemonicString = cryptoService.mnemonicVectorToString(mnemonic);
     auto zPub = cryptoService.deriveZPub(mnemonicString, passphrase);
     if (zPub.toString().c_str() != wallet.getZPub()) {
-      display.displaySubMessage("seed/wallet mismatch", 18, 3000);
+      display.displaySubMessage("助记词与钱包不匹配", 18, 3000);
       selectionContext.setTransactionOngoing(false);
       return {};
     }
 
-    display.displaySubMessage("Seed loaded", 65, 2000);
+    display.displaySubMessage("助记词已加载", 65, 2000);
 
     // Update
     wallet.setPassphrase(passphrase);
@@ -169,7 +169,7 @@ std::vector<std::string> SeedManager::manageMnemonicLoading(size_t wordCount) {
     // Go to file browser
     selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
     selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
-    display.displaySubMessage("Select .psbt file", 50, 3000);
+    display.displaySubMessage("选择 PSBT 文件", 50, 3000);
 
     sdService.close(); // SD card stop
     
@@ -200,19 +200,19 @@ bool SeedManager::manageRfidSeedLoading() {
     auto passphrase = managePassphrase();
 
     // Derive PublicKey to check if seed match
-    display.displaySubMessage("Loading", 83);
+    display.displaySubMessage("正在加载", 83);
     auto mnemonicString = cryptoService.mnemonicVectorToString(mnemonic);
     auto zPub = cryptoService.deriveZPub(mnemonicString, passphrase);
     if (zPub.toString().c_str() != wallet.getZPub()) {
-      display.displaySubMessage("seed/wallet mismatch", 18, 4000);
+      display.displaySubMessage("助记词与钱包不匹配", 18, 4000);
       selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
       selectionContext.setTransactionOngoing(false);
       return false;
     }
 
     // Valid seed
-    display.displaySubMessage("Seed is valid", 63, 1000);
-    display.displaySubMessage("1st word: " + mnemonic[0], 49, 3000);
+    display.displaySubMessage("助记词有效", 63, 1000);
+    display.displaySubMessage("首个单词：" + mnemonic[0], 49, 3000);
 
     // Set mnemonic to wallet
     wallet.setPassphrase(passphrase);
@@ -221,11 +221,11 @@ bool SeedManager::manageRfidSeedLoading() {
     walletService.updateWallet(wallet);
 
     // Go to file browser
-    display.displaySubMessage("Loading", 83);
+    display.displaySubMessage("正在加载", 83);
     selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
     selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
 
-    display.displaySubMessage("Select .psbt file", 50, 3000);
+    display.displaySubMessage("选择 PSBT 文件", 50, 3000);
 
     return true;
 }
@@ -244,8 +244,8 @@ void SeedManager::manageRfidSeedRestoration() {
 
     // Bad seed if empty
     if (!mnemonic.empty()) {
-      display.displaySubMessage("Seed is valid", 63, 1000);
-      display.displaySubMessage("1st word: " + mnemonic[0], 47, 3000);
+      display.displaySubMessage("助记词有效", 63, 1000);
+      display.displaySubMessage("首个单词：" + mnemonic[0], 47, 3000);
     }
 
     // Passphrase
@@ -253,13 +253,13 @@ void SeedManager::manageRfidSeedRestoration() {
     auto passphrase = managePassphrase(); // return "" in case user doesn't want passphrase
 
     // Prompt for a wallet name
-    display.displayTopBar("Wallet", false, false, true);
-    auto walletName = stringPromptSelection.select("Enter wallet name");
+    display.displayTopBar("钱包", false, false, true);
+    auto walletName = stringPromptSelection.select("输入钱包名称");
     if (walletName.empty()) {return;}
     auto wallet = manageBitcoinWalletCreation(mnemonicString, passphrase, walletName);
 
     // Save wallet to SD if any
-    display.displaySubMessage("Loading", 83);
+    display.displaySubMessage("正在加载", 83);
     sdService.begin(); // SD card start
     manageSdSave(wallet);
 
@@ -281,7 +281,7 @@ void SeedManager::manageRfidSeedRestoration() {
 
 void SeedManager::manageNewSeedCreation() {
     // Display the top main bar with the btc icon
-    display.displayTopBar("New Seed", false, false, true, 5);
+    display.displayTopBar("新建助记词", false, false, true, 5);
 
     // Check if an SD is plugged
     auto confirmRunWithoutSd = manageSdConfirmation();
@@ -291,7 +291,7 @@ void SeedManager::manageNewSeedCreation() {
     }
 
     // Prompt for a wallet name
-    auto walletName = stringPromptSelection.select("Enter wallet name");
+    auto walletName = stringPromptSelection.select("输入钱包名称");
 
     // User hits return (empty name) => go back to menu
     if (walletName.empty()) {
@@ -322,7 +322,7 @@ void SeedManager::manageNewSeedCreation() {
     manageRfidSave(privateKey);
 
     // Save wallet to SD if any
-    display.displaySubMessage("Loading", 83);
+    display.displaySubMessage("正在加载", 83);
     sdService.begin();
     manageSdSave(wallet);
 

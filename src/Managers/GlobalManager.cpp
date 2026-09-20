@@ -67,12 +67,12 @@ GlobalManager::GlobalManager(const GlobalManager& other)
 
 bool GlobalManager::manageSdConfirmation() {
     // SD card start
-  display.displaySubMessage("Loading", 83); // sd can take time to response
+  display.displaySubMessage("正在加载", 83); // sd can take time to response
   sdService.begin(); 
 
   // Display 'no SD card'
   if (!sdService.getSdState()) {
-    auto confirmation = confirmationSelection.select("No SD card found");
+    auto confirmation = confirmationSelection.select("未找到 SD 卡");
     if (!confirmation) {
       sdService.close(); // SD card stop
       return false;
@@ -103,13 +103,13 @@ void GlobalManager::manageSdSave(Wallet wallet) {
 }
 
 std::string GlobalManager::managePassphrase() {
-    auto passConfirmation = confirmationSelection.select("Add passphrase?");
-    display.displaySubMessage("Loading", 83);
+    auto passConfirmation = confirmationSelection.select("添加附加密码？");
+    display.displaySubMessage("正在加载", 83);
 
     std::string passphrase;
     if (passConfirmation) {
-        passphrase = confirmStringsMatch("Enter passphrase", "Repeat passphrase", "Do not match");
-        display.displaySubMessage("Passphrase set", 48, 2000);
+        passphrase = confirmStringsMatch("输入附加密码", "再次输入附加密码", "两次输入不一致");
+        display.displaySubMessage("附加密码已设置", 48, 2000);
     }
     return passphrase;
 }
@@ -130,16 +130,16 @@ std::string GlobalManager::confirmStringsMatch(const std::string& prompt1,
 }
 
 std::tuple<std::vector<uint8_t>, std::string> GlobalManager::manageRfidEncryption(std::vector<uint8_t> privateKey) {
-    display.displaySubMessage("Loading", 83, 800); // Add some time to avoid double input
-    auto encryptConfirmation = confirmationSelection.select("Encrypt the seed?");
+    display.displaySubMessage("正在加载", 83, 800); // Add some time to avoid double input
+    auto encryptConfirmation = confirmationSelection.select("加密助记词备份？");
     if (!encryptConfirmation) { 
         return {privateKey, ""};
     }
 
     // Get salt and encrypt key
     auto salt = cryptoService.getRandomString(16); // 16 bytes, not chars
-    auto password = confirmStringsMatch("Enter a password", " Repeat password", "Do not match");
-    display.displaySubMessage("Loading", 83);
+    auto password = confirmStringsMatch("输入密码", "再次输入密码", "两次输入不一致");
+    display.displaySubMessage("正在加载", 83);
     auto encryptedKey = cryptoService.encryptPrivateKeyWithPassphrase(privateKey, password, salt);
 
     return {encryptedKey, salt};
@@ -149,7 +149,7 @@ std::vector<uint8_t> GlobalManager::manageRfidDecryption() {
     // Get private key, salt and signature
     auto privateKey = rfidService.getPrivateKey();
     if (privateKey.empty()) {
-      display.displaySubMessage("Failed to read key", 38, 1000);
+      display.displaySubMessage("读取密钥失败", 38, 1000);
       return {};
     }
     auto salt = rfidService.getSalt();
@@ -162,11 +162,11 @@ std::vector<uint8_t> GlobalManager::manageRfidDecryption() {
     bool validation = false;
     while (!validation && privateKey.size() % 16 == 0 && !saltIsEmpty) {
       // Ask password
-      auto password = stringPromptSelection.select("Enter the password", 8, true, true);
+      auto password = stringPromptSelection.select("输入密码", 8, true, true);
       if (password.empty()) {return {};} // return button
 
       // Decrypt
-      display.displaySubMessage("Loading", 83);
+      display.displaySubMessage("正在加载", 83);
       auto decryptedKey = cryptoService.decryptPrivateKeyWithPassphrase(privateKey, password, salt);
       auto generatedSign = cryptoService.generateChecksum(decryptedKey, salt);
 
@@ -174,9 +174,9 @@ std::vector<uint8_t> GlobalManager::manageRfidDecryption() {
       validation = sign == generatedSign;
       if(validation) {
         privateKey = decryptedKey;
-        display.displaySubMessage("Seed decrypted", 48, 2000);
+        display.displaySubMessage("助记词已解密", 48, 2000);
       } else {
-        display.displaySubMessage("Bad password", 55, 1500);
+        display.displaySubMessage("密码错误", 55, 1500);
       }
     }
     return privateKey;
@@ -189,13 +189,13 @@ void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
   display.displayTopBar("MIFARE 1K", false, false, false);
 
   // Confirm RFID
-  auto rfidConfirmation = confirmationSelection.select("Seed on RFID tag?");
+  auto rfidConfirmation = confirmationSelection.select("保存到 RFID 标签？");
   if (!rfidConfirmation) { return; }
   
   // Init RFID
   auto initialised = rfidService.initialize();
   if(!initialised) {
-     display.displaySubMessage("No RFID module", 48, 2500);
+     display.displaySubMessage("未检测到 RFID 模块", 48, 2500);
      return;
   }
 
@@ -206,7 +206,7 @@ void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
   auto signature = cryptoService.generateChecksum(privateKey, salt);
   auto splittedKey = cryptoService.splitVector(returnedKey); // return {key, {}} for 16 bytes seed
   
-  display.displaySubMessage("PLUG YOUR TAG", 43);
+  display.displaySubMessage("请放置 RFID 标签", 43);
   const unsigned long timeout = 5000; // 5 seconds
   unsigned long startTime = millis();
   bool eraseConfirmation = false;
@@ -214,14 +214,14 @@ void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
   while (true) {
     if (millis() - startTime > timeout) {
         // Ask confirmation to continue each 5 sec
-        auto continueProcess = confirmationSelection.select("Retry saving seed?");
+        auto continueProcess = confirmationSelection.select("重试保存助记词？");
         if (!continueProcess) {
-            display.displaySubMessage("RFID save cancelled", 27, 2000);
+            display.displaySubMessage("已取消保存 RFID", 27, 2000);
             break;
         }
         rfidService.reset();
         startTime = millis();
-        display.displaySubMessage("PLUG YOUR TAG", 43);
+        display.displaySubMessage("请放置 RFID 标签", 43);
     }
 
     // No tag detected
@@ -234,9 +234,9 @@ void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
     if (!eraseConfirmation) {
       auto metadataByte = rfidService.getMetadata();
       if (metadataByte == 32 || metadataByte == 16) {
-        display.displaySubMessage("Tag contains a seed", 28, 1500);
-        eraseConfirmation = confirmationSelection.select(" Overwrite tag ?");
-        display.displaySubMessage("PLUG YOUR TAG", 43);
+        display.displaySubMessage("标签已有助记词", 28, 1500);
+        eraseConfirmation = confirmationSelection.select("覆盖此标签？");
+        display.displaySubMessage("请放置 RFID 标签", 43);
         rfidService.reset();
         startTime = millis();
         continue;
@@ -246,33 +246,33 @@ void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
     // Save private key
     auto privateKeySaved = rfidService.savePrivateKey(splittedKey.first, splittedKey.second);
     if (!privateKeySaved) {
-        display.displaySubMessage("Failed to save key", 36, 1000);
+        display.displaySubMessage("保存密钥失败", 36, 1000);
         continue;
     }
 
     // Save salt with zeros if no encryption
     auto saltSaved = rfidService.saveSalt(salt);
     if (!saltSaved) {
-        display.displaySubMessage("Failed to save salt", 34, 1000);
+        display.displaySubMessage("保存盐值失败", 34, 1000);
         continue;
     }
 
     // Save sign as a checksum for data
     auto signSaved = rfidService.saveChecksum(signature);
     if (!signSaved) {
-        display.displaySubMessage("Failed to save sign", 34, 1000);
+        display.displaySubMessage("保存校验值失败", 34, 1000);
         continue;
     }
 
     // Save seed length
     auto lengthSaved = rfidService.saveMetadata(privateKey.size());
     if (!lengthSaved) {
-        display.displaySubMessage("Failed to save length", 28, 1000);
+        display.displaySubMessage("保存长度失败", 28, 1000);
         continue;
     }
 
     ledService.blink();
-    display.displaySubMessage("Seed is saved", 54, 2500);
+    display.displaySubMessage("助记词已保存", 54, 2500);
     return;
   }
   rfidService.end();
@@ -281,13 +281,13 @@ void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
 std::vector<uint8_t> GlobalManager::manageRfidRead() {
   auto initialised = rfidService.initialize();
   if(!initialised) {
-     display.displayTopBar("RFID Error");
-     display.displaySubMessage("No RFID module", 48, 2500);
+     display.displayTopBar("RFID 错误");
+     display.displaySubMessage("未检测到 RFID 模块", 48, 2500);
      return {};
   }
 
   display.displayTopBar("MIFARE 1K");
-  display.displaySubMessage("PLUG YOUR TAG", 43);
+  display.displaySubMessage("请放置 RFID 标签", 43);
 
   std::vector<uint8_t> privateKey;
   const unsigned long timeout = 5000; // 5 seconds
@@ -296,14 +296,14 @@ std::vector<uint8_t> GlobalManager::manageRfidRead() {
   while (true) {
     if (millis() - startTime > timeout) {
         // Ask confirmation to continue each 5 sec
-        auto continueProcess = confirmationSelection.select("Retry reading tag?");
+        auto continueProcess = confirmationSelection.select("重试读取标签？");
         if (!continueProcess) {
-            display.displaySubMessage("RFID read cancelled", 30, 2000);
+            display.displaySubMessage("已取消读取 RFID", 30, 2000);
             return privateKey;
         }
         rfidService.reset();
         startTime = millis();
-        display.displaySubMessage("PLUG YOUR TAG", 43);
+        display.displaySubMessage("请放置 RFID 标签", 43);
     }
 
     // No tag detected
@@ -341,14 +341,14 @@ std::vector<uint8_t> GlobalManager::manageBitcoinSignature(std::string& psbt, st
 Wallet GlobalManager::manageBitcoinWalletCreation(std::string mnemonic, std::string passphrase, 
                                                   std::string walletName, bool loadedConfirmation) {
     // Derive public keys and create segwit BTC address
-    display.displaySubMessage("Loading", 83);
+    display.displaySubMessage("正在加载", 83);
     auto zpub = cryptoService.deriveZPub(mnemonic, passphrase);
     auto fingerprint = cryptoService.getFingerprint(mnemonic, passphrase);
     auto derivePath = cryptoService.getSegwitDerivePath();
     auto addressSegwit = cryptoService.generateBitcoinSegwitAddress(zpub);
 
     if (loadedConfirmation) {
-      display.displaySubMessage("Seed loaded", 65, 2000);
+      display.displaySubMessage("助记词已加载", 65, 2000);
     }
 
     // Create Wallet

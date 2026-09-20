@@ -12,10 +12,10 @@ void FileBrowserController::handleFileSelection() {
     auto selectedFileType = selectionContext.getCurrentSelectedFileType();
 
     // Check SD card
-    manager.display.displaySubMessage("Loading", 83);
+    manager.display.displaySubMessage("正在加载", 83);
     manager.sdService.begin(); // SD card start
     if (!manager.sdService.getSdState()) {
-        manager.display.displaySubMessage("SD card not found", 38, 2000);
+        manager.display.displaySubMessage("未找到 SD 卡", 38, 2000);
         manager.sdService.close(); // SD card stop
         manager.selectionContext.setIsModeSelected(false);
         selectionContext.setTransactionOngoing(false);
@@ -39,7 +39,7 @@ void FileBrowserController::handleFileSelection() {
         }
 
         // Get currentPath folder elements from the cache if exist or get them from the sd card
-        manager.display.displaySubMessage("Loading", 83);
+        manager.display.displaySubMessage("正在加载", 83);
         elementNames = manager.getCachedDirectoryElements(currentPath); 
         
         // Select the file or folder

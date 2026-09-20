@@ -10,7 +10,7 @@ void CardputerView::initialize() {
     Display->setTextColor(TEXT_COLOR);
     Display->fillScreen(BACKGROUND_COLOR);
     M5Cardputer.Display.setTextDatum(middle_center);
-    M5Cardputer.Display.setFont(&fonts::Orbitron_Light_24);
+    M5Cardputer.Display.setFont(&fonts::efontCN_16);
 }
 
 void CardputerView::displayTopBar(const std::string& title, bool submenu, bool searchBar, bool bitcoinIcon, size_t correctionOffset) {
@@ -39,7 +39,7 @@ void CardputerView::displayTopBar(const std::string& title, bool submenu, bool s
         Display->setTextColor(TEXT_COLOR);
 
         // Empty search query
-        const std::string searchQuery = title.empty() ? "Type to search" : title.substr(0, limiter);
+        const std::string searchQuery = title.empty() ? "输入关键词搜索" : title.substr(0, limiter);
         drawSearchIcon(Display->width() - 20, marginY-2, 10, PRIMARY_COLOR);
 
         Display->setCursor(offsetX, marginY);
@@ -80,7 +80,7 @@ void CardputerView::displaySelection(
 
     // for filtering with no results
     if (selectionStrings.empty()) {
-        Display->drawCenterString("No results", Display->width() / 2, Display->height() / 2);
+        Display->drawCenterString("没有结果", Display->width() / 2, Display->height() / 2);
     }
 
     for (size_t i = 0; i < rowsPerScreen && (currentStartRow + i) < selectionStrings.size(); ++i) {
@@ -133,17 +133,17 @@ void CardputerView::displayWalletFileInfo(std::string defaultFileName) {
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(52, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("About File");
+    Display->printf("钱包文件");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(34, 46);
-    Display->printf("When you create a wallet");
+    Display->printf("创建钱包后，公开信息");
 
     // Text
     Display->setCursor(34, 65);
-    Display->printf("it is saved on the SD card");
+    Display->printf("会保存到 SD 卡");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setTextSize(TEXT_MEDIUM_LARGE);
     auto truncated = truncateString(defaultFileName, 24);
@@ -156,7 +156,7 @@ void CardputerView::displayWalletFileInfo(std::string defaultFileName) {
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(80, 115);
-    Display->printf("OK to start");
+    Display->printf("按 OK 继续");
 }
 
 void CardputerView::displayStringPrompt(std::string stringDescription, std::string stringInput, size_t offsetX, bool backButton) {
@@ -263,14 +263,14 @@ void CardputerView::displayMnemonicWord(std::string word, size_t index, size_t s
         Display->setTextSize(TEXT_TINY);
         Display->setTextColor(PRIMARY_COLOR);
         Display->setCursor(32, 47);
-        Display->printf("Press ESC when you are done");
+        Display->printf("抄写完成后按 ESC");
     }
 
     if (restore) {
         Display->setTextSize(TEXT_SMALL);
         Display->setTextColor(PRIMARY_COLOR);
         Display->setCursor(24, 49);
-        Display->printf("Write the word and press OK"); 
+        Display->printf("输入单词后按 OK");
     }
 
 
@@ -351,43 +351,22 @@ void CardputerView::drawBitcoinIcon(int x, int y) {
     Display->setTextDatum(middle_center);
     M5Cardputer.Display.setFont(&fonts::FreeSerifBold24pt7b);
     Display->drawString("B", x + radius, y + radius + 1);
-    M5Cardputer.Display.setFont(&fonts::Orbitron_Light_24);
+    M5Cardputer.Display.setFont(&fonts::efontCN_16);
 }
 
 void CardputerView::displayDebug(std::string message) {
     Display->setTextSize(TEXT_MEDIUM);
     Display->fillScreen(TFT_BLACK);
     Display->setCursor(100, 10);
-    Display->printf("DEBUG");
+    Display->printf("调试信息");
     Display->setCursor(10, 50);
     Display->printf(message.c_str());
     delay(3000);
 }
 
 float CardputerView::getTextCenterOffset(const std::string& text, int16_t width, float sizeText) {
-    float correction = 0.0f;
-
-    for (char c : text) {
-
-        // Correction largeur lettre
-        char lowerC = std::tolower(c);
-        if (lowerC == 'w' || lowerC == 'm') {
-            correction -= sizeText / 2;
-        } else if (lowerC == 'i') {
-            correction += sizeText / 2;
-        } else if (c == 'l' || c == 'f' || c == 't' || c == 'j') {
-            correction += sizeText / 4;
-        }
-
-        // Correction pour majuscules
-        if (std::isupper(c)) {
-            correction -= sizeText / 3;
-        }
-    }
-
-    // offset pour centrer avec correction 
-    float baseOffset = width / 2 - sizeText * text.length();
-    return baseOffset + correction;
+    (void)sizeText;
+    return (width - Display->textWidth(text.c_str())) / 2.0f;
 }
 
 void CardputerView::displayKeyboardLayout(const std::string& layoutName) {
@@ -401,9 +380,9 @@ void CardputerView::displayKeyboardLayout(const std::string& layoutName) {
     Display->setTextSize(TEXT_TINY);
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(17, 45);
-    Display->printf("Press OK to select Keyboard Layout");
+    Display->printf("按 OK 选择键盘布局");
     Display->setCursor(17, 113);
-    Display->printf("to send the btc address through USB");
+    Display->printf("用于通过 USB 输入比特币地址");
 
     // Layout name box
     Display->drawRoundRect(40, 63, Display->width() - 77, 35, DEFAULT_ROUND_RECT, RECT_COLOR_LIGHT);
@@ -431,14 +410,14 @@ void CardputerView::displayWalletValue(std::string description, std::string valu
     displayClearMainView(5);
     
     auto limit = 110;
-    if (description == "Balance") {
+    if (description == "余额") {
         Display->setCursor(0, 39);
         Display->setTextSize(0.97);
         limit = 82;
-    } else if (description == "Address") {
+    } else if (description == "地址") {
         Display->setCursor(0, 48);
         Display->setTextSize(1.2);
-    } else if (description == "Public Zpub") {
+    } else if (description == "公钥 Zpub") {
         Display->setCursor(0, 43);
         Display->setTextSize(0.9);
         limit = 80;
@@ -459,7 +438,7 @@ void CardputerView::displayWalletValue(std::string description, std::string valu
     Display->setTextColor(TEXT_COLOR);
     Display->setFont(&fonts::FreeSans9pt7b);
     Display->printf(truncatedValue.c_str());
-    Display->setFont(&fonts::Orbitron_Light_24);
+    Display->setFont(&fonts::efontCN_16);
 
     // Display "Q" button
     Display->setTextSize(TEXT_MEDIUM);
@@ -470,7 +449,7 @@ void CardputerView::displayWalletValue(std::string description, std::string valu
 
     Display->setCursor(68, 102);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("to show QR Code");
+    Display->printf("显示二维码");
 
     // Display "OK" button
     Display->fillRoundRect(40, 117, 30, 15, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
@@ -481,7 +460,7 @@ void CardputerView::displayWalletValue(std::string description, std::string valu
     // Display->setTextSize(TEXT_TINY);
     Display->setCursor(80, 123);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("to send via USB");
+    Display->printf("通过 USB 输入");
 
     Display->setTextColor(TEXT_COLOR);
 }
@@ -490,7 +469,7 @@ void CardputerView::displayPlugUsbMention() {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(30, 120);
-    Display->printf("Plug in USB as keyboard");
+    Display->printf("请连接 USB 键盘模式");
 }
 
 
@@ -524,28 +503,28 @@ void CardputerView::displaySeedStart(){
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(40, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("About Seed");
+    Display->printf("关于助记词");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(30, 46);
-    Display->printf("We will create a new seed");
+    Display->printf("即将创建新助记词");
 
     // Text
     Display->setCursor(20, 65);
-    Display->printf("Note the 24 words on a paper");
+    Display->printf("请把 24 个单词抄到纸上");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(12, 88);
     Display->setTextSize(TEXT_WIDE);
-    Display->printf("Lost Seed = Lost Wallet");
+    Display->printf("丢失助记词等于丢失钱包");
 
     // Button OK
     Display->fillRoundRect(70, 105, 100, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(80, 115);
-    Display->printf("OK to start");
+    Display->printf("按 OK 开始");
 }
 
 void CardputerView::displaySeedRfid(){
@@ -558,28 +537,28 @@ void CardputerView::displaySeedRfid(){
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(45, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("About RFID");
+    Display->printf("关于 RFID");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(12, 46);
-    Display->printf("You can store your seed on a tag");
+    Display->printf("可将助记词保存到标签");
 
     // Text
     Display->setCursor(20, 65);
-    Display->printf("Plug your RFID2 if you want it");
+    Display->printf("如需使用，请连接 RFID2");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(8, 88);
     Display->setTextSize(TEXT_SMALL);
-    Display->printf("You can encrypt it with password");
+    Display->printf("可使用密码加密备份");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
-    Display->printf("Next  ->");
+    Display->printf("下一步 ->");
 }
 
 void CardputerView::displaySeedEnd(bool sdCardMount) {
@@ -592,20 +571,20 @@ void CardputerView::displaySeedEnd(bool sdCardMount) {
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(33, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("About Wallet");
+    Display->printf("钱包已创建");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(41, 46);
-    Display->printf("Wallet has been created");
+    Display->printf("请妥善保管助记词");
 
     // Text
     Display->setCursor(12, 65);
-    Display->printf(sdCardMount ? "It has been saved to the SD card" : "  It could not be saved to the SD");
+    Display->printf(sdCardMount ? "公开信息已保存到 SD 卡" : "公开信息未保存到 SD 卡");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setTextSize(TEXT_MEDIUM_LARGE);
-    auto finalString = sdCardMount ? "/card-wallets.txt" : "will be lost on reboot";
+    auto finalString = sdCardMount ? "/card-wallets.txt" : "重启后将丢失";
     auto offsetX = getTextCenterOffset(finalString, Display->width(), 4);
     Display->setCursor(offsetX, 88);
     Display->printf(finalString);
@@ -615,7 +594,7 @@ void CardputerView::displaySeedEnd(bool sdCardMount) {
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(80, 115);
-    Display->printf("OK to start");
+    Display->printf("按 OK 继续");
 }
 
 void CardputerView::displayPlugRfid(){
@@ -628,28 +607,28 @@ void CardputerView::displayPlugRfid(){
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(54, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("Plug RFID");
+    Display->printf("连接 RFID");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(42, 46);
-    Display->printf("Plug you RFID2 module");
+    Display->printf("请连接 RFID2 模块");
 
     // Text
     Display->setCursor(45, 65);
-    Display->printf("into the I2C grove port");
+    Display->printf("插入 I2C Grove 接口");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(20, 88);
     Display->setTextSize(TEXT_SMALL);
-    Display->printf("Press OK when you are ready");
+    Display->printf("准备好后按 OK");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
-    Display->printf("Next  ->");
+    Display->printf("下一步 ->");
 }
 
 void CardputerView::displaySeedGeneralInfos() {
@@ -662,28 +641,28 @@ void CardputerView::displaySeedGeneralInfos() {
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(40, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("About Seed");
+    Display->printf("关于助记词");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(25, 46);
-    Display->printf("Seed is not saved anywhere");
+    Display->printf("设备不会保存助记词");
 
     // Text
     Display->setCursor(30, 65);
-    Display->printf("If you lost it or don't save it");
+    Display->printf("如果没有备份或已经丢失");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(13, 88);
     Display->setTextSize(TEXT_MEDIUM);
-    Display->printf("You cannot access the funds");
+    Display->printf("将无法找回钱包资金");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
-    Display->printf("Next  ->");
+    Display->printf("下一步 ->");
 }
 
 void CardputerView::displayRfidInfos() {
@@ -696,28 +675,28 @@ void CardputerView::displayRfidInfos() {
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(43, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("About RFID");
+    Display->printf("关于 RFID");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(17, 46);
-    Display->printf("You can save your seed on tag");
+    Display->printf("可将助记词保存到标签");
 
     // Text
     Display->setCursor(17, 65);
-    Display->printf("To be able to sign transactions");
+    Display->printf("签名交易时可直接读取");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(8, 88);
     Display->setTextSize(TEXT_MEDIUM);
-    Display->printf("You must have M5Stack RFID2");
+    Display->printf("需要 M5Stack RFID2 模块");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
-    Display->printf("Next  ->");
+    Display->printf("下一步 ->");
 }
 
 void CardputerView::displayRfidTagInfos() {
@@ -730,28 +709,28 @@ void CardputerView::displayRfidTagInfos() {
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(50, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("About Tag");
+    Display->printf("关于标签");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(14, 46);
-    Display->printf("You must have a MIFARE 1K tag");
+    Display->printf("需要空白 MIFARE 1K 标签");
 
     // Text
     Display->setCursor(9, 65);
-    Display->printf("It will be saved in plain or encrypt");
+    Display->printf("可明文或加密保存");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(15, 88);
     Display->setTextSize(TEXT_MEDIUM);
-    Display->printf("It must be blank to write on it");
+    Display->printf("写入前标签必须为空");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
-    Display->printf("Next  ->");
+    Display->printf("下一步 ->");
 }
 
 void CardputerView::displaySeedLoadInfos() {
@@ -764,28 +743,28 @@ void CardputerView::displaySeedLoadInfos() {
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(46, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("Load Seed");
+    Display->printf("加载助记词");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(15, 46);
-    Display->printf("Seed is not saved on the device");
+    Display->printf("设备不会保存助记词");
 
     // Text
     Display->setCursor(20, 65);
-    Display->printf("to be able to sign transactions");
+    Display->printf("签名交易前需要重新加载");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(24, 88);
     Display->setTextSize(TEXT_MEDIUM);
-    Display->printf("Load it with RFID SD Words");
+    Display->printf("可用 RFID、SD 卡或手动输入");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
-    Display->printf("Next  ->");
+    Display->printf("下一步 ->");
 }
 
 void CardputerView::displaySeedFormatGeneralInfos() {
@@ -798,28 +777,28 @@ void CardputerView::displaySeedFormatGeneralInfos() {
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(25, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("About Format");
+    Display->printf("助记词格式");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(30, 46);
-    Display->printf("Seed uses BIP39 standard");
+    Display->printf("助记词遵循 BIP39 标准");
 
     // Text
     Display->setCursor(25, 65);
-    Display->printf("You can restore it anywhere");
+    Display->printf("可在兼容钱包中恢复");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(16, 88);
     Display->setTextSize(TEXT_MEDIUM);
-    Display->printf("BTC address is segwit BIP84");
+    Display->printf("地址使用 SegWit BIP84");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
-    Display->printf("Next  ->");
+    Display->printf("下一步 ->");
 }
 
 void CardputerView::displaySdSaveGeneralInfos() {
@@ -832,28 +811,28 @@ void CardputerView::displaySdSaveGeneralInfos() {
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(20, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("About SD card");
+    Display->printf("关于 SD 卡");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(28, 46);
-    Display->printf("Only public infos are stored");
+    Display->printf("仅保存钱包公开信息");
 
     // Text
     Display->setCursor(22, 65);
-    Display->printf("You can manually edit the file");
+    Display->printf("可手动编辑钱包文件");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(26, 88);
     Display->setTextSize(TEXT_MEDIUM_LARGE);
-    Display->printf("SEEDS ARE NOT SAVED");
+    Display->printf("不会保存助记词");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
-    Display->printf("Next  ->");
+    Display->printf("下一步 ->");
 }
 
 void CardputerView::displaySeedRestorationInfos() {
@@ -866,28 +845,28 @@ void CardputerView::displaySeedRestorationInfos() {
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(40, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("About Seed");
+    Display->printf("恢复助记词");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(22, 46);
-    Display->printf("Write each word of your seed");
+    Display->printf("请逐个输入助记词");
 
     // Text
     Display->setCursor(27, 65);
-    Display->printf("Input your words accurately");
+    Display->printf("请准确输入每个英文单词");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(28, 88);
     Display->setTextSize(TEXT_MEDIUM);
-    Display->printf("It will recover your wallet");
+    Display->printf("完成后即可恢复钱包");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
-    Display->printf("Next  ->");
+    Display->printf("下一步 ->");
 }
 
 void CardputerView::displayFileVersionInfos() {
@@ -900,28 +879,28 @@ void CardputerView::displayFileVersionInfos() {
     Display->setTextSize(TEXT_BIG);
     Display->setCursor(36, 22);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->printf("File Version");
+    Display->printf("文件版本");
 
     // Sub title
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(32, 46);
-    Display->printf("You can't use file version 1");
+    Display->printf("不支持版本 1 钱包文件");
 
     // Text
     Display->setCursor(16, 65);
-    Display->printf("Restore your seed using words");
+    Display->printf("请用助记词恢复钱包");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(28, 88);
     Display->setTextSize(TEXT_MEDIUM);
-    Display->printf("It will recover your wallet");
+    Display->printf("恢复后将生成新版文件");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
-    Display->printf("Next  ->");
+    Display->printf("下一步 ->");
 }
 
 std::string CardputerView::truncateString(const std::string& input, size_t maxLength) {

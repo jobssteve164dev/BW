@@ -9,7 +9,7 @@ const uint8_t* KeyboardLayoutSelection::select() {
     char key = KEY_NONE;
     size_t lastIndex = -1;
 
-    display.displayTopBar("Select layout", false, false, false, 15);
+    display.displayTopBar("选择键盘布局", false, false, false, 15);
 
     while (key != KEY_OK) {
         if (lastIndex != currentIndex) {

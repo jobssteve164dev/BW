@@ -14,7 +14,7 @@ std::string FilePathSelection::select(const std::vector<std::string>& elementNam
     std::string lowerSearchQuery;
     std::string lowerName;
     size_t lastSlashPos;
-    folderName = folderName == "" ? "root" : folderName; // if foldeName is "" then folderName is "root"
+    folderName = folderName == "" ? "根目录" : folderName;
 
     // Info about file on first run
     handleFirstRun(fileType);

@@ -9,7 +9,7 @@ void WalletController::handleWalletSelection() {
 
     // No wallets currently in the repo, ask for loading wallets file from the SD card
     if (wallets.empty()) {
-        auto confirmation = manager.confirmationSelection.select("Load wallets file?");
+        auto confirmation = manager.confirmationSelection.select("加载钱包文件？");
 
         if (confirmation) {
             selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
@@ -68,7 +68,7 @@ void WalletController::handleWalletInformationSelection() {
 
         case WalletInformationEnum::BALANCE:
             manager.valueSelection.select(
-                "Balance", 
+                "余额",
                 globalContext.getBitcoinBalanceUrl() + selectedWallet.getZPub(), 
                 manager.usbService,
                 manager.ledService
@@ -77,7 +77,7 @@ void WalletController::handleWalletInformationSelection() {
 
         case WalletInformationEnum::ADDRESS:
             manager.valueSelection.select(
-                "Address", 
+                "地址",
                 selectedWallet.getAddress(), 
                 manager.usbService,
                 manager.ledService
@@ -96,7 +96,7 @@ void WalletController::handleWalletInformationSelection() {
 
         case WalletInformationEnum::PUBLIC_KEY:
             manager.valueSelection.select(
-                "Public Zpub", 
+                "公钥 Zpub",
                 selectedWallet.getZPub(), 
                 manager.usbService,
                 manager.ledService
@@ -105,7 +105,7 @@ void WalletController::handleWalletInformationSelection() {
 
         case WalletInformationEnum::FINGERPRINT:
             manager.valueSelection.select(
-                "Fingerprint", 
+                "主密钥指纹",
                 selectedWallet.getFingerprint(), 
                 manager.usbService,
                 manager.ledService
@@ -114,7 +114,7 @@ void WalletController::handleWalletInformationSelection() {
 
         case WalletInformationEnum::DERIVE_PATH:
             manager.valueSelection.select(
-                "Deriv Path", 
+                "派生路径",
                 selectedWallet.getDerivePath(), 
                 manager.usbService,
                 manager.ledService

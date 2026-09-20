@@ -1,3 +1,73 @@
+# BW：M5Cardputer ADV 比特币离线签名钱包（中文版）
+
+BW 是运行在 **M5Cardputer ADV** 上的中文比特币钱包工具。它可以离线生成 BIP39 助记词、查看钱包公开信息，并使用助记词或 RFID 标签为 PSBT 交易签名。
+
+> [!CAUTION]
+> 本项目仍处于实验阶段，未经专业安全审计。请先在测试钱包和小额资金上完整验证。任何人都不应向你索要助记词或附加密码。
+
+![BW 运行效果](./images/bitcoin-card-wallet.jpg)
+
+## 主要功能
+
+- 生成 24 个英文单词组成的 BIP39 助记词；
+- 使用 BIP84 派生原生 SegWit 地址；
+- 从键盘、SD 卡或 MIFARE 1K RFID 标签恢复助记词；
+- 使用可选附加密码保护钱包；
+- 读取并签名 SD 卡中的 PSBT 文件；
+- 显示地址二维码，或通过 USB 键盘模式输入地址；
+- 将钱包名称、地址、zpub、指纹和派生路径保存到 SD 卡。
+
+设备不会长期保存助记词。`/card-wallets.txt` 仅包含公开信息，不能用于恢复资金。
+
+## 下载固件
+
+打开仓库的 **Actions → 构建 M5Cardputer ADV 固件**，进入最近一次成功运行，在 Artifacts 中下载 `BW-Cardputer-ADV-firmware`。
+
+下载包包含：
+
+- `BW-Cardputer-ADV-full.bin`：完整固件，推荐从地址 `0x0` 刷入；
+- `BW-Cardputer-ADV.bin`：仅应用固件，用于已有引导程序的设备；
+- `SHA256SUMS.txt`：固件校验值。
+
+使用 Espressif `esptool` 刷入完整固件：
+
+```bash
+esptool.py --chip esp32s3 --port <串口> write_flash 0x0 BW-Cardputer-ADV-full.bin
+```
+
+刷写会覆盖设备当前固件。请先确认串口和设备型号确实是 M5Cardputer ADV。
+
+## 基本使用
+
+1. 首次使用选择“创建钱包”，在纸上准确抄写 24 个英文单词并完成抽查。
+2. 如需保存公开钱包信息，请插入 SD 卡；如需保存助记词副本，可选用空白 MIFARE 1K 标签并启用密码加密。
+3. 在 Sparrow 等钱包中用 zpub 建立仅观察钱包并导出 PSBT。
+4. 把 PSBT 放入 SD 卡，在 BW 中选择钱包并完成离线签名。
+5. 将生成的 `*-signed.psbt` 导回桌面钱包广播。
+
+RFID 标签不是纸质备份的替代品。明文 RFID 和 SD 卡助记词文件都有较高泄露风险。
+
+## 从源码构建
+
+项目使用 PlatformIO：
+
+```bash
+pio run
+```
+
+普通使用者无需在本地安装构建环境，GitHub Actions 会自动编译并提供可下载固件。
+
+## 项目与许可
+
+BW 由 [SZLK LTD](https://szlk.ai) 维护，联系邮箱：[admin@szlk.site](mailto:admin@szlk.site)。
+
+本项目基于 [geo-tp/Bitcoin-Card-Wallet](https://github.com/geo-tp/Bitcoin-Card-Wallet) 汉化并适配 M5Cardputer ADV。上游提交与许可信息见 [NOTICE](./NOTICE)，项目继续采用 MIT License。
+
+<!-- Upstream English documentation is preserved below for reference. -->
+
+<details>
+<summary>上游英文说明</summary>
+
 # Bitcoin Card Wallet
 
 **Bitcoin Card Wallet** is an ESP32 project that **allows you to generate seeds, addresses, and sign transactions.** It offers key generation based on **BIP39 standards**, allowing the user to generate a mnemonic **24 words seed** that can be safely backed up and restored in **compatible wallets.**. The seed is **never stored on the device itself**, and to sign a transaction, **you must enter the seed words or use an RFID tag to store it.**
@@ -321,3 +391,5 @@ This project is provided under the MIT License, allowing free use, modification,
 - **Personal Use**: This software is intended for educational and personal use only.
 
 ***By using this software, you acknowledge and accept these terms.***
+
+</details>

@@ -13,7 +13,7 @@ Wallet WalletSelection::select(std::vector<Wallet> wallets) {
     this->wallets = wallets; // Stocker la liste locale
     lastIndex = -1;
 
-    display.displayTopBar("Portfolio", true, false, true, 10);
+    display.displayTopBar("钱包列表", true, false, true, 10);
     
     char key = KEY_NONE;
     while (key != KEY_OK && key != KEY_ARROW_RIGHT) {

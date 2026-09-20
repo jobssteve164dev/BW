@@ -30,7 +30,7 @@ void UsbService::sendString(const std::string& text) {
         if (sent == 0) {
             M5Cardputer.Display.fillScreen(TFT_BLACK);
             M5Cardputer.Display.setCursor(10, 10);
-            M5Cardputer.Display.print("NOT SENT " + c);
+            M5Cardputer.Display.print("发送失败：" + c);
             delay(3000);
         }
     }

@@ -1,0 +1,11 @@
+BW
+Copyright (c) 2026 SZLK LTD
+
+This project is derived from Bitcoin Card Wallet:
+https://github.com/geo-tp/Bitcoin-Card-Wallet
+
+Upstream revision:
+df9d0729c7aadf08f6efb6a6a62e3d5b6ea0bf47
+
+The upstream source and this derivative are distributed under the MIT License.
+The original license text is preserved in LICENSE.

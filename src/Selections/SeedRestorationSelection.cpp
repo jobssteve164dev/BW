@@ -34,29 +34,29 @@ SeedRestorationModeEnum SeedRestorationSelection::select() {
 const std::string SeedRestorationSelection::getModeToString(SeedRestorationModeEnum mode) const {
     switch (mode) {
         case SeedRestorationModeEnum::RFID:
-            return "RFID TAG";
+            return "RFID 标签";
         case SeedRestorationModeEnum::SD:
-            return "SD CARD";
+            return "SD 卡";
         case SeedRestorationModeEnum::WORDS_12:
-            return "12 WORDS";
+            return "12 个单词";
         case SeedRestorationModeEnum::WORDS_24:
-            return "24 WORDS";
+            return "24 个单词";
         default:
-            return "UNKNOWN";
+            return "未知";
     }
 }
 
 const std::string SeedRestorationSelection::getModeDescription(SeedRestorationModeEnum mode) const {
     switch (mode) {
         case SeedRestorationModeEnum::RFID:
-            return "       from RFID tag";
+            return "从 RFID 读取";
         case SeedRestorationModeEnum::SD:
-            return "            from SD card";
+            return "从 SD 卡读取";
         case SeedRestorationModeEnum::WORDS_12:
         case SeedRestorationModeEnum::WORDS_24:
-            return "   from mnemonic";
+            return "手动输入助记词";
         default:
-            return "UNKNOWN";
+            return "未知";
     }
 }
 

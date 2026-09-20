@@ -30,10 +30,10 @@ void SeedController::handleSeedRestoration() {
     manager.display.displaySeedLoadInfos();
     manager.input.waitPress();
   } else {
-    manager.display.displaySubMessage("Restore a wallet", 45, 1500);
+    manager.display.displaySubMessage("恢复钱包", 45, 1500);
   }
 
-  auto title = transactionOngoing ? "Load Seed" : "Restore";
+  auto title = transactionOngoing ? "加载助记词" : "恢复助记词";
   manager.display.displayTopBar(title, true, false, true, 15);
 
   auto restorationMethod = manager.seedRestorationSelection.select();
@@ -55,7 +55,7 @@ void SeedController::handleSeedRestoration() {
           break;
 
       case SeedRestorationModeEnum::SD:
-          manager.display.displaySubMessage("12 or 24 words txt file", 19, 3500);
+          manager.display.displaySubMessage("选择含 12 或 24 个单词的文本文件", 19, 3500);
           selectionContext.setCurrentSelectedFileType(FileTypeEnum::SEED);
           selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD); // sd file browser
           break;

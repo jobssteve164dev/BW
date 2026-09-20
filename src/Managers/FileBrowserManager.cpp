@@ -27,7 +27,7 @@ bool FileBrowserManager::verifyWalletFile(const std::string& fileContent) {
         if (fileContent.find("Version: 1") != std::string::npos) {
             display.displayFileVersionInfos();
             input.waitPress();
-            display.displayTopBar("Old Version", false, false, false, 15);
+            display.displayTopBar("旧版文件", false, false, false, 15);
             return false;
         } else if (fileContent.find("Version: 2") != std::string::npos) {
             return true;
@@ -59,13 +59,13 @@ bool FileBrowserManager::manageWalletFile(const std::string& currentPath) {
             selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
             selectionContext.setIsWalletSelected(false);
             globalContext.setFileWalletPath(currentPath);
-            display.displaySubMessage("Wallets loaded", 50, 1000);
+            display.displaySubMessage("钱包已加载", 50, 1000);
             return true;
         } else {
-            confirmationSelection.select("  Invalid wallets");
+            confirmationSelection.select("钱包文件无效");
         }
     } else {
-        confirmationSelection.select("Unsupported file");
+        confirmationSelection.select("不支持此文件");
     }
     return false;
 }
@@ -75,8 +75,8 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
     auto fileExt = extractFileExtension(fileName);
 
     if (fileExt == "psbt") {
-        display.displayTopBar("SIGNING", false, false, true);
-        display.displaySubMessage("Loading", 83);
+        display.displayTopBar("正在签名", false, false, true);
+        display.displaySubMessage("正在加载", 83);
 
         // Read file
         auto fileContent = sdService.readBinaryFile(currentPath.c_str());
@@ -88,12 +88,12 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
         
         // Bad sign
         if (signedTransactionBytes.empty()) {
-            display.displaySubMessage("Failed to sign", 60, 2000);
+            display.displaySubMessage("签名失败", 60, 2000);
             return false;
         }
 
         // Sign success, means it's the correct seed for the correct transaction
-        display.displaySubMessage("Successefully signed", 25, 2000);
+        display.displaySubMessage("签名成功", 25, 2000);
         
         // SD Save
         auto parent = getParentDirectory(currentPath);
@@ -101,10 +101,10 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
         sdService.writeBinaryFile((parent + "/" + baseFileName + "-signed.psbt").c_str(), signedTransactionBytes);
         sdService.deleteFile(currentPath.c_str()); // delete unsigned file
         removeCachedDirectoryElement(parent); // new sign.psbt in it, remove to refetch
-        display.displaySubMessage("Sign saved on SD", 40, 3000);
+        display.displaySubMessage("签名已保存到 SD 卡", 40, 3000);
         
         // Check if user want to sign another tx
-        auto signConfirmation = confirmationSelection.select("Sign another tx ?");
+        auto signConfirmation = confirmationSelection.select("继续签名交易？");
         if (!signConfirmation) {
             // Go back to portfolio
             selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
@@ -117,7 +117,7 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
 
     } 
 
-    confirmationSelection.select("Unsupported file");
+    confirmationSelection.select("不支持此文件");
     return false;
 }
 
@@ -134,12 +134,12 @@ bool FileBrowserManager::manageSeedLoadingFile(const std::string& currentPath) {
             auto validation = cryptoService.verifyMnemonic(mnemonicWordList);
 
             if (!validation) {
-                display.displaySubMessage("Invalid mnemonic", 41, 2000);
+                display.displaySubMessage("助记词无效", 41, 2000);
                 return false;
             }
 
-            display.displayTopBar("Loading Seed", false, false, true, 5);
-            display.displaySubMessage("Valid mnemonic", 45, 2000);
+            display.displayTopBar("加载助记词", false, false, true, 5);
+            display.displaySubMessage("助记词有效", 45, 2000);
 
             // Get Wallet
             auto wallet = selectionContext.getCurrentSelectedWallet();
@@ -148,15 +148,15 @@ bool FileBrowserManager::manageSeedLoadingFile(const std::string& currentPath) {
             auto passphrase = managePassphrase();
 
             // Derive PublicKey to check if seed match
-            display.displaySubMessage("Loading", 83);
+            display.displaySubMessage("正在加载", 83);
             auto zPub = cryptoService.deriveZPub(mnemonicString, passphrase);
             if (zPub.toString().c_str() != wallet.getZPub()) {
-                display.displaySubMessage("seed/wallet mismatch", 18, 3000);
+                display.displaySubMessage("助记词与钱包不匹配", 18, 3000);
                 return false;
             }
 
             // Update
-            display.displaySubMessage("Seed loaded", 65, 1500);
+            display.displaySubMessage("助记词已加载", 65, 1500);
             wallet.setPassphrase(passphrase);
             wallet.setMnemonic(mnemonicString);
             selectionContext.setCurrentSelectedWallet(wallet);
@@ -165,14 +165,14 @@ bool FileBrowserManager::manageSeedLoadingFile(const std::string& currentPath) {
             // Go to file browser
             selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
             selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
-            display.displaySubMessage("Select .psbt file", 50, 3000);
+            display.displaySubMessage("选择 PSBT 文件", 50, 3000);
 
             return true;
         } else {
-            confirmationSelection.select("    Invalid seed");
+            confirmationSelection.select("助记词无效");
         }
     } else {
-        confirmationSelection.select("Unsupported file");
+        confirmationSelection.select("不支持此文件");
     }
     return false;
 }
@@ -190,12 +190,12 @@ bool FileBrowserManager::manageSeedRestorationFile(const std::string& currentPat
             auto validation = cryptoService.verifyMnemonic(mnemonicWordList);
 
             if (!validation) {
-                display.displaySubMessage("Invalid mnemonic", 41, 2000);
+                display.displaySubMessage("助记词无效", 41, 2000);
                 return false;
             }
 
-            display.displayTopBar("Restore Seed", false, false, true, 5);
-            display.displaySubMessage("Valid mnemonic", 45, 2000);
+            display.displayTopBar("恢复助记词", false, false, true, 5);
+            display.displaySubMessage("助记词有效", 45, 2000);
             auto passphrase = managePassphrase(); // return "" in case user doesn't want passphrase
             auto privateKey = cryptoService.mnemonicToPrivateKey(mnemonicString);
 
@@ -203,13 +203,13 @@ bool FileBrowserManager::manageSeedRestorationFile(const std::string& currentPat
             manageRfidSave(privateKey);
             
             // Prompt for a wallet name
-            display.displayTopBar("Wallet", false, false, true);
-            auto walletName = stringPromptSelection.select("Enter wallet name");
+            display.displayTopBar("钱包", false, false, true);
+            auto walletName = stringPromptSelection.select("输入钱包名称");
             if (walletName.empty()) {return false;}
             auto wallet = manageBitcoinWalletCreation(mnemonicString, passphrase, walletName);
 
             // Save wallet to SD if any
-            display.displaySubMessage("Loading", 83);
+            display.displaySubMessage("正在加载", 83);
             sdService.begin(); // SD card start
             manageSdSave(wallet);
             display.displaySeedEnd(sdService.getSdState());
@@ -221,10 +221,10 @@ bool FileBrowserManager::manageSeedRestorationFile(const std::string& currentPat
             selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
             return true;
         } else {
-            confirmationSelection.select("    Invalid seed");
+            confirmationSelection.select("助记词无效");
         }
     } else {
-        confirmationSelection.select("Unsupported file");
+        confirmationSelection.select("不支持此文件");
     }
     return false;
 }

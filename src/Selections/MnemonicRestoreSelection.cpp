@@ -10,7 +10,7 @@ std::string MnemonicRestoreSelection::select(size_t index, size_t size) {
     char key = KEY_NONE;
     size_t lastWordSize = -1;
     auto limit = 9;
-    display.displayTopBar("Word " + std::to_string(index+1), false, false, false, 13);
+    display.displayTopBar("第 " + std::to_string(index+1) + " 个单词", false, false, false, 13);
 
     while (key != KEY_OK) {
         key = input.handler();

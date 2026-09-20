@@ -41,19 +41,19 @@ WalletInformationEnum WalletInformationSelection::select(const std::string& wall
 const std::string WalletInformationSelection::getWalletInformationToString(WalletInformationEnum info) {
     switch (info) {
         case WalletInformationEnum::BALANCE:
-            return "BITCOIN BALANCE";
+            return "比特币余额";
         case WalletInformationEnum::ADDRESS:
-            return "BITCOIN ADDRESS";
+            return "比特币地址";
         case WalletInformationEnum::SIGNATURE:
-            return "SIGN TRANSACTIONS";
+            return "签名交易";
         case WalletInformationEnum::PUBLIC_KEY:
-            return "WALLET PUBLIC ZPUB";
+            return "钱包公钥 ZPUB";
         case WalletInformationEnum::FINGERPRINT:
-            return "MASTER FINGERPRINT";
+            return "主密钥指纹";
         case WalletInformationEnum::DERIVE_PATH:
-            return "DERIVATION PATH";
+            return "派生路径";
         default:
-            return "Unknown";
+            return "未知";
     }
 }
 

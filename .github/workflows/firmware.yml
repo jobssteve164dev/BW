@@ -1,0 +1,59 @@
+name: 构建 M5Cardputer ADV 固件
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+
+      - name: 安装构建工具
+        run: python -m pip install --disable-pip-version-check platformio pytest
+
+      - name: 编译固件
+        run: pio run
+
+      - name: 生成可直接刷入的完整固件
+        shell: bash
+        run: |
+          mkdir -p dist
+          BUILD_DIR=.pio/build/m5stack-stamps3
+          cp "$BUILD_DIR/firmware.bin" dist/BW-Cardputer-ADV.bin
+          python "$HOME/.platformio/packages/tool-esptoolpy/esptool.py" \
+            --chip esp32s3 merge_bin \
+            -o dist/BW-Cardputer-ADV-full.bin \
+            0x0 "$BUILD_DIR/bootloader.bin" \
+            0x8000 "$BUILD_DIR/partitions.bin" \
+            0xe000 "$HOME/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin" \
+            0x10000 "$BUILD_DIR/firmware.bin"
+          cd dist
+          sha256sum BW-Cardputer-ADV.bin BW-Cardputer-ADV-full.bin > SHA256SUMS.txt
+
+      - name: 验证最终中文固件
+        env:
+          BW_FIRMWARE: dist/BW-Cardputer-ADV-full.bin
+        run: pytest -q tests/test_firmware_localization.py
+
+      - name: 上传固件
+        uses: actions/upload-artifact@v4
+        with:
+          name: BW-Cardputer-ADV-firmware
+          path: dist/*
+          if-no-files-found: error
+
+      - name: 发布版本固件
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

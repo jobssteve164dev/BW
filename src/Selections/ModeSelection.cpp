@@ -37,34 +37,34 @@ SelectionModeEnum ModeSelection::select() {
 const std::string ModeSelection::getSelectionModeToString(SelectionModeEnum mode) {
     switch (mode) {
         case SelectionModeEnum::PORTFOLIO:
-            return "PORTFOLIO";
+            return "钱包列表";
         case SelectionModeEnum::CREATE_WALLET:
-            return "NEW WALLET";
+            return "创建钱包";
         case SelectionModeEnum::LOAD_SD:
-            return "LOAD WALLET";
+            return "加载钱包";
         case SelectionModeEnum::LOAD_SEED:
-            return "RESTORE SEED";
+            return "恢复助记词";
         case SelectionModeEnum::INFOS:
-            return "      INFORMATIONS";
+            return "使用说明";
         default:
-            return "UNKNOWN";
+            return "未知";
     }
 }
 
 const std::string ModeSelection::getSelectionModeDescription(SelectionModeEnum mode) {
     switch (mode) {
         case SelectionModeEnum::PORTFOLIO:
-            return "      btc wallets";
+            return "查看已保存钱包";
         case SelectionModeEnum::CREATE_WALLET:
-            return "     btc seed";
+            return "生成新助记词";
         case SelectionModeEnum::LOAD_SD:
-            return "  from sd";
+            return "从 SD 卡读取";
         case SelectionModeEnum::LOAD_SEED:
-            return "secret";
+            return "导入已有助记词";
         case SelectionModeEnum::INFOS:
             return "";
         default:
-            return "UNKNOWN";
+            return "未知";
     }
 }
 

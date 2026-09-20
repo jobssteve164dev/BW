@@ -26,16 +26,16 @@ private:
     size_t currentIndex = 0;
 
     std::vector<std::pair<std::string, const uint8_t*>> layouts = {
-        {"English (US)", KeyboardLayout_en_US},
-        {"French (FR)", KeyboardLayout_fr_FR},
-        {"German (DE)", KeyboardLayout_de_DE},
-        {"Spanish (ES)", KeyboardLayout_es_ES},
-        {"            Italian (IT)", KeyboardLayout_it_IT}, // hack to align well on screen
-        {"Portuguese (PT)", KeyboardLayout_pt_PT},
-        {"Portuguese (BR)", KeyboardLayout_pt_BR},
-        {"Swedish (SE)", KeyboardLayout_sv_SE},
-        {"Danish (DK)", KeyboardLayout_da_DK},
-        {"Hungarian (HU)", KeyboardLayout_hu_HU}
+        {"英语（美国）", KeyboardLayout_en_US},
+        {"法语（法国）", KeyboardLayout_fr_FR},
+        {"德语（德国）", KeyboardLayout_de_DE},
+        {"西班牙语", KeyboardLayout_es_ES},
+        {"意大利语", KeyboardLayout_it_IT},
+        {"葡萄牙语", KeyboardLayout_pt_PT},
+        {"葡萄牙语（巴西）", KeyboardLayout_pt_BR},
+        {"瑞典语", KeyboardLayout_sv_SE},
+        {"丹麦语", KeyboardLayout_da_DK},
+        {"匈牙利语", KeyboardLayout_hu_HU}
     };
 };
 

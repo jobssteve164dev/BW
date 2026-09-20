@@ -82,7 +82,7 @@ private:
     GlobalContext();
 
     // GENERAL
-    std::string appName = "Card Wallet";
+    std::string appName = "比特币钱包";
     std::string fileWalletPath;
     std::string fileWalletDefaultPath = "/card-wallets.txt";
     std::string bitcoinBalanceUrl = "https://www.blockonomics.co/#/search?q=";
