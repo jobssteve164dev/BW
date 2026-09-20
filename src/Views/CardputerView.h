@@ -19,13 +19,14 @@
 #define TEXT_COLOR 0xef7d
 
 // TEXT SIZE
-#define TEXT_BIG 1
-#define TEXT_LARGE 0.95
-#define TEXT_WIDE 0.7
-#define TEXT_MEDIUM_LARGE 0.6
-#define TEXT_MEDIUM 0.55
-#define TEXT_SMALL 0.5
-#define TEXT_TINY 0.45
+#define TEXT_TITLE 1.0f
+#define TEXT_BIG TEXT_TITLE
+#define TEXT_LARGE TEXT_TITLE
+#define TEXT_WIDE TEXT_TITLE
+#define TEXT_MEDIUM_LARGE TEXT_TITLE
+#define TEXT_MEDIUM TEXT_TITLE
+#define TEXT_SMALL TEXT_TITLE
+#define TEXT_TINY TEXT_TITLE
 
 namespace views {
 
@@ -69,6 +70,7 @@ private:
     static void clearTopBar();
     static std::string toUpperCase(const std::string& text);
     static float getTextCenterOffset(const std::string& text, int16_t width, float sizeText);
+    static std::string fitTextToWidth(const std::string& text, int16_t maxWidth);
     static std::string truncateString(const std::string& input, size_t maxLength);
 };
 

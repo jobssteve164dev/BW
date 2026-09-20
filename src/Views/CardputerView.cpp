@@ -11,6 +11,7 @@ void CardputerView::initialize() {
     Display->fillScreen(BACKGROUND_COLOR);
     M5Cardputer.Display.setTextDatum(middle_center);
     M5Cardputer.Display.setFont(&fonts::efontCN_16);
+    Display->setTextSize(TEXT_BIG);
 }
 
 void CardputerView::displayTopBar(const std::string& title, bool submenu, bool searchBar, bool bitcoinIcon, size_t correctionOffset) {
@@ -64,13 +65,14 @@ void CardputerView::displaySelection(
                     bool upperCase, bool showCurrency){
 
     uint8_t sizeX = Display->width() - 10; // width of each block
-    uint8_t sizeY = 22; // height of each block
+    const bool hasDescriptions = selectionDescription.size() == selectionStrings.size() && !selectionDescription.empty();
+    uint8_t sizeY = hasDescriptions ? 44 : 22; // height of each block
     uint8_t startY = 30; // height start block
-    uint8_t stepY = 26; // step between each block
+    uint8_t stepY = hasDescriptions ? 48 : 26; // step between each block
     uint8_t margin = DEFAULT_MARGIN;
-    uint8_t startText = 41; // where text for each block starts
+    uint8_t startText = hasDescriptions ? 40 : 41; // where text for each block starts
     uint8_t marginText; // width start block
-    uint8_t rowsPerScreen = 4;
+    uint8_t rowsPerScreen = hasDescriptions ? 2 : 4;
     size_t currentIndex; // up to date index
     bool selected; // track selected row
     uint16_t currentStartRow = selectionIndex / rowsPerScreen * rowsPerScreen;
@@ -115,10 +117,13 @@ void CardputerView::displaySelection(
         }
 
         // Description
-        if (selectionDescription.size() != 0) {
+        if (hasDescriptions) {
             Display->setTextSize(TEXT_TINY);
-            Display->setCursor(selectionStrings[currentIndex].size() * 15, startText + stepY * i);
-            Display->printf(selectionDescription[currentIndex].c_str());
+            const auto& description = selectionDescription[currentIndex];
+            auto descriptionX = getTextCenterOffset(description, Display->width(), 0);
+            auto descriptionY = startText + 18 + stepY * i;
+            Display->setCursor(descriptionX, descriptionY);
+            Display->printf(description.c_str());
         }
     }
 }
@@ -369,6 +374,13 @@ float CardputerView::getTextCenterOffset(const std::string& text, int16_t width,
     return (width - Display->textWidth(text.c_str())) / 2.0f;
 }
 
+std::string CardputerView::fitTextToWidth(const std::string& text, int16_t maxWidth) {
+    if (Display->textWidth(text.c_str()) <= maxWidth) return text;
+    std::string fitted = text;
+    while (!fitted.empty() && Display->textWidth((fitted + "...").c_str()) > maxWidth) fitted.pop_back();
+    return fitted + "...";
+}
+
 void CardputerView::displayKeyboardLayout(const std::string& layoutName) {
     // Clear
     displayClearMainView(5);
@@ -408,36 +420,17 @@ void CardputerView::displayKeyboardLayout(const std::string& layoutName) {
 void CardputerView::displayWalletValue(std::string description, std::string value) {
     // Clear the main view area
     displayClearMainView(5);
-    
-    auto limit = 110;
-    if (description == "余额") {
-        Display->setCursor(0, 39);
-        Display->setTextSize(0.97);
-        limit = 82;
-    } else if (description == "地址") {
-        Display->setCursor(0, 48);
-        Display->setTextSize(1.2);
-    } else if (description == "公钥 Zpub") {
-        Display->setCursor(0, 43);
-        Display->setTextSize(0.9);
-        limit = 80;
-    } else { // small infos, derive path, fingerprint
-        auto x = getTextCenterOffset(description, Display->width(), 6);
-        Display->setCursor(x, 60);
-        Display->setTextSize(1.5);
-        limit = 80;
-    }
-
-    // Limit value characters with "..."
-    std::string truncatedValue = value;
-    if (value.length() > limit) {
-        truncatedValue = value.substr(0, limit) + "...";
-    }
 
     // Display value
+    Display->setTextSize(TEXT_BIG);
     Display->setTextColor(TEXT_COLOR);
-    Display->setFont(&fonts::FreeSans9pt7b);
-    Display->printf(truncatedValue.c_str());
+    Display->setFont(&fonts::FreeSans12pt7b);
+    Display->setTextWrap(false);
+    auto preview = fitTextToWidth(value, Display->width() - 12);
+    auto previewX = getTextCenterOffset(preview, Display->width(), 0);
+    Display->setCursor(previewX, 62);
+    Display->printf(preview.c_str());
+    Display->setTextWrap(true);
     Display->setFont(&fonts::efontCN_16);
 
     // Display "Q" button

@@ -29,6 +29,8 @@ void UsbService::sendString(const std::string& text) {
         auto sent = keyboard.write(c);
         if (sent == 0) {
             M5Cardputer.Display.fillScreen(TFT_BLACK);
+            M5Cardputer.Display.setFont(&fonts::efontCN_16);
+            M5Cardputer.Display.setTextSize(1.0f);
             M5Cardputer.Display.setCursor(10, 10);
             M5Cardputer.Display.print("发送失败：" + c);
             delay(3000);
