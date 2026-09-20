@@ -14,3 +14,10 @@ def test_embedded_crypto_dependencies_are_available():
 
     missing = [str(path.relative_to(ROOT)) for path in required_headers if not path.is_file()]
     assert not missing, f"缺少嵌入式密码学依赖：{', '.join(missing)}"
+
+
+def test_platformio_does_not_link_a_missing_prebuilt_secp256k1_archive():
+    config = (ROOT / "platformio.ini").read_text(encoding="utf-8")
+
+    assert "-Llib/secp256k1" not in config
+    assert "-lsecp256k1" not in config
