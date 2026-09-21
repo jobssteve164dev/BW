@@ -18,19 +18,19 @@ bool Esp32WifiRadio::disable() {
         return false;
     }
 
-    return state() == RadioState::DISABLED;
+    return state() == RadioState::ISOLATED;
 }
 
 RadioState Esp32WifiRadio::state() const {
     wifi_mode_t mode = WIFI_MODE_NULL;
     const auto result = esp_wifi_get_mode(&mode);
     if (result == ESP_ERR_WIFI_NOT_INIT) {
-        return RadioState::DISABLED;
+        return RadioState::ISOLATED;
     }
     if (result != ESP_OK) {
-        return RadioState::UNKNOWN;
+        return RadioState::INDETERMINATE;
     }
-    return mode == WIFI_MODE_NULL ? RadioState::DISABLED : RadioState::ENABLED;
+    return mode == WIFI_MODE_NULL ? RadioState::ISOLATED : RadioState::ACTIVE;
 }
 
 bool Esp32BluetoothRadio::disable() {
@@ -55,20 +55,20 @@ bool Esp32BluetoothRadio::disable() {
     }
 
     memoryReleased = esp_bt_mem_release(ESP_BT_MODE_BLE) == ESP_OK;
-    return state() == RadioState::DISABLED;
+    return state() == RadioState::ISOLATED;
 }
 
 RadioState Esp32BluetoothRadio::state() const {
     const auto status = esp_bt_controller_get_status();
     if (memoryReleased && status == ESP_BT_CONTROLLER_STATUS_IDLE) {
-        return RadioState::DISABLED;
+        return RadioState::ISOLATED;
     }
     if (status == ESP_BT_CONTROLLER_STATUS_IDLE ||
         status == ESP_BT_CONTROLLER_STATUS_INITED ||
         status == ESP_BT_CONTROLLER_STATUS_ENABLED) {
-        return RadioState::ENABLED;
+        return RadioState::ACTIVE;
     }
-    return RadioState::UNKNOWN;
+    return RadioState::INDETERMINATE;
 }
 
 } // namespace services

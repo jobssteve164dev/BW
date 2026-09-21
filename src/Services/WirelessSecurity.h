@@ -4,9 +4,9 @@
 namespace services {
 
 enum class RadioState {
-    DISABLED,
-    ENABLED,
-    UNKNOWN
+    ISOLATED,
+    ACTIVE,
+    INDETERMINATE
 };
 
 class WifiRadio {

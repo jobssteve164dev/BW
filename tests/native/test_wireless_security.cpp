@@ -25,7 +25,7 @@ public:
 private:
     bool commandSucceeds;
     services::RadioState finalState;
-    services::RadioState currentState = services::RadioState::ENABLED;
+    services::RadioState currentState = services::RadioState::ACTIVE;
 };
 
 class FakeBluetoothRadio : public services::BluetoothRadio {
@@ -48,12 +48,12 @@ public:
 private:
     bool commandSucceeds;
     services::RadioState finalState;
-    services::RadioState currentState = services::RadioState::ENABLED;
+    services::RadioState currentState = services::RadioState::ACTIVE;
 };
 
 void testAllowsStartupOnlyWhenBothRadiosAreDisabled() {
-    FakeWifiRadio wifi(true, services::RadioState::DISABLED);
-    FakeBluetoothRadio bluetooth(true, services::RadioState::DISABLED);
+    FakeWifiRadio wifi(true, services::RadioState::ISOLATED);
+    FakeBluetoothRadio bluetooth(true, services::RadioState::ISOLATED);
 
     assert(services::enforceWirelessIsolation(wifi, bluetooth));
     assert(wifi.attempted);
@@ -61,28 +61,28 @@ void testAllowsStartupOnlyWhenBothRadiosAreDisabled() {
 }
 
 void testBlocksStartupWhenACommandFailsEvenIfFinalStateLooksDisabled() {
-    FakeWifiRadio wifiFailure(false, services::RadioState::DISABLED);
-    FakeBluetoothRadio bluetoothAfterWifiFailure(true, services::RadioState::DISABLED);
+    FakeWifiRadio wifiFailure(false, services::RadioState::ISOLATED);
+    FakeBluetoothRadio bluetoothAfterWifiFailure(true, services::RadioState::ISOLATED);
     assert(!services::enforceWirelessIsolation(wifiFailure, bluetoothAfterWifiFailure));
 
-    FakeWifiRadio wifiAfterBluetoothFailure(true, services::RadioState::DISABLED);
-    FakeBluetoothRadio bluetoothFailure(false, services::RadioState::DISABLED);
+    FakeWifiRadio wifiAfterBluetoothFailure(true, services::RadioState::ISOLATED);
+    FakeBluetoothRadio bluetoothFailure(false, services::RadioState::ISOLATED);
     assert(!services::enforceWirelessIsolation(wifiAfterBluetoothFailure, bluetoothFailure));
 }
 
 void testBlocksStartupWhenAStateIsEnabledOrUnknown() {
-    FakeWifiRadio wifiStillEnabled(true, services::RadioState::ENABLED);
-    FakeBluetoothRadio bluetoothDisabled(true, services::RadioState::DISABLED);
+    FakeWifiRadio wifiStillEnabled(true, services::RadioState::ACTIVE);
+    FakeBluetoothRadio bluetoothDisabled(true, services::RadioState::ISOLATED);
     assert(!services::enforceWirelessIsolation(wifiStillEnabled, bluetoothDisabled));
 
-    FakeWifiRadio wifiUnknown(true, services::RadioState::UNKNOWN);
-    FakeBluetoothRadio anotherBluetoothDisabled(true, services::RadioState::DISABLED);
+    FakeWifiRadio wifiUnknown(true, services::RadioState::INDETERMINATE);
+    FakeBluetoothRadio anotherBluetoothDisabled(true, services::RadioState::ISOLATED);
     assert(!services::enforceWirelessIsolation(wifiUnknown, anotherBluetoothDisabled));
 }
 
 void testAttemptsBluetoothShutdownAfterWifiFailure() {
-    FakeWifiRadio wifi(false, services::RadioState::UNKNOWN);
-    FakeBluetoothRadio bluetooth(true, services::RadioState::DISABLED);
+    FakeWifiRadio wifi(false, services::RadioState::INDETERMINATE);
+    FakeBluetoothRadio bluetooth(true, services::RadioState::ISOLATED);
 
     assert(!services::enforceWirelessIsolation(wifi, bluetooth));
     assert(wifi.attempted);

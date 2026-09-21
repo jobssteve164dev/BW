@@ -8,8 +8,8 @@ bool enforceWirelessIsolation(WifiRadio& wifi, BluetoothRadio& bluetooth) {
 
     return wifiCommandSucceeded &&
            bluetoothCommandSucceeded &&
-           wifi.state() == RadioState::DISABLED &&
-           bluetooth.state() == RadioState::DISABLED;
+           wifi.state() == RadioState::ISOLATED &&
+           bluetooth.state() == RadioState::ISOLATED;
 }
 
 } // namespace services
