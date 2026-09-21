@@ -41,10 +41,10 @@ jobs:
           cd dist
           sha256sum BW-Cardputer-ADV.bin BW-Cardputer-ADV-full.bin > SHA256SUMS.txt
 
-      - name: 验证最终中文固件
+      - name: 运行固件测试
         env:
           BW_FIRMWARE: dist/BW-Cardputer-ADV-full.bin
-        run: pytest -q tests/test_firmware_localization.py
+        run: pytest -q tests
 
       - name: 上传固件
         uses: actions/upload-artifact@v4
