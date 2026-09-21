@@ -70,4 +70,8 @@ void SelectionContext::setTransactionOngoing(bool transactionOngoing) {
     this->transactionOngoing = transactionOngoing;
 }
 
+services::TransactionSigningFlow& SelectionContext::getTransactionSigningFlow() {
+    return transactionSigningFlow;
+}
+
 } // namespace contexts

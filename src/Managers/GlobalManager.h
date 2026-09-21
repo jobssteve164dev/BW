@@ -102,6 +102,7 @@ public:
                          const Wallet& wallet);
     VaultUnlockResult manageVaultUnlock(Wallet& wallet);
     void clearLoadedWalletSecrets(Wallet wallet);
+    void endTransactionSigning();
     std::string managePassphrase();
     std::string confirmStringsMatch(const std::string& prompt1, 
                                     const std::string& prompt2, 

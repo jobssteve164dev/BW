@@ -259,17 +259,23 @@ bool GlobalManager::manageVaultSave(const std::vector<uint8_t>& entropy,
 }
 
 VaultUnlockResult GlobalManager::manageVaultUnlock(Wallet& wallet) {
-  if (!sdService.begin()) {
+  const bool sdWasAlreadyMounted = sdService.getSdState();
+  if (!sdWasAlreadyMounted && !sdService.begin()) {
     return VaultUnlockResult::NOT_AVAILABLE;
   }
+  const auto closeOwnedSdSession = [&]() {
+    if (!sdWasAlreadyMounted) {
+      sdService.close();
+    }
+  };
   if (!vaultService.exists()) {
-    sdService.close();
+    closeOwnedSdSession();
     return VaultUnlockResult::NOT_AVAILABLE;
   }
 
   auto password = stringPromptSelection.select("输入保险库密码", 0, true, true, 8);
   if (password.empty()) {
-    sdService.close();
+    closeOwnedSdSession();
     return VaultUnlockResult::CANCELLED_OR_FAILED;
   }
 
@@ -279,7 +285,7 @@ VaultUnlockResult GlobalManager::manageVaultUnlock(Wallet& wallet) {
   clearSecret(password);
   if (status != VaultStatus::OK) {
     VaultService::clearRecords(records);
-    sdService.close();
+    closeOwnedSdSession();
     display.displaySubMessage(
         status == VaultStatus::AUTH_FAILED ? "密码错误或文件被篡改" : "保险库读取失败",
         status == VaultStatus::AUTH_FAILED ? 18 : 38,
@@ -292,7 +298,7 @@ VaultUnlockResult GlobalManager::manageVaultUnlock(Wallet& wallet) {
   });
   if (record == records.end()) {
     VaultService::clearRecords(records);
-    sdService.close();
+    closeOwnedSdSession();
     display.displaySubMessage("保险库中没有此钱包", 28, 2500);
     return VaultUnlockResult::CANCELLED_OR_FAILED;
   }
@@ -302,7 +308,7 @@ VaultUnlockResult GlobalManager::manageVaultUnlock(Wallet& wallet) {
   if (mnemonic.empty()) {
     clearSecrets(mnemonicWords);
     VaultService::clearRecords(records);
-    sdService.close();
+    closeOwnedSdSession();
     display.displaySubMessage("保险库内容无效", 46, 2500);
     return VaultUnlockResult::CANCELLED_OR_FAILED;
   }
@@ -312,7 +318,7 @@ VaultUnlockResult GlobalManager::manageVaultUnlock(Wallet& wallet) {
     clearSecret(mnemonic);
     clearSecrets(mnemonicWords);
     VaultService::clearRecords(records);
-    sdService.close();
+    closeOwnedSdSession();
     display.displaySubMessage("备份与钱包不匹配", 30, 2500);
     return VaultUnlockResult::CANCELLED_OR_FAILED;
   }
@@ -324,7 +330,7 @@ VaultUnlockResult GlobalManager::manageVaultUnlock(Wallet& wallet) {
   clearSecret(mnemonic);
   clearSecrets(mnemonicWords);
   VaultService::clearRecords(records);
-  sdService.close();
+  closeOwnedSdSession();
   display.displaySubMessage("保险库已解锁", 46, 1500);
   return VaultUnlockResult::UNLOCKED;
 }
@@ -333,6 +339,13 @@ void GlobalManager::clearLoadedWalletSecrets(Wallet wallet) {
   wallet.clearSecrets();
   walletService.updateWallet(wallet);
   selectionContext.setCurrentSelectedWallet(wallet);
+}
+
+void GlobalManager::endTransactionSigning() {
+  clearLoadedWalletSecrets(selectionContext.getCurrentSelectedWallet());
+  selectionContext.getTransactionSigningFlow().cancel();
+  selectionContext.setTransactionOngoing(false);
+  selectionContext.setCurrentSelectedFileType(FileTypeEnum::WALLET);
 }
 
 std::string GlobalManager::managePassphrase() {

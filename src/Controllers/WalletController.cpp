@@ -62,8 +62,7 @@ void WalletController::handleWalletInformationSelection() {
     // Route to the selected wallet infos
     switch (selectedInfo) {
         case WalletInformationEnum::NONE: // when key return is hits
-            manager.clearLoadedWalletSecrets(selectedWallet);
-            selectionContext.setTransactionOngoing(false);
+            manager.endTransactionSigning();
             selectionContext.setIsWalletSelected(false); // go back to wallet selection
             break;
 
@@ -86,22 +85,11 @@ void WalletController::handleWalletInformationSelection() {
             break;
 
         case WalletInformationEnum::SIGNATURE: {
+            selectionContext.getTransactionSigningFlow().begin();
             selectionContext.setTransactionOngoing(true);
-            if(selectedWallet.getMnemonic().empty()) {
-                const auto unlockResult = manager.manageVaultUnlock(selectedWallet);
-                if (unlockResult == VaultUnlockResult::UNLOCKED) {
-                    selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
-                    selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
-                } else {
-                    // The encrypted vault is optional. A missing record, bad file,
-                    // wrong password or cancellation must not hide the existing
-                    // RFID, SD mnemonic and manual-entry signing choices.
-                    selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SEED);
-                }
-            } else {
-                selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
-                selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
-            }            
+            selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
+            selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
+            manager.display.displaySubMessage("选择待签名 PSBT", 43, 1800);
             break;
         }
 

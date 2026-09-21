@@ -10,6 +10,13 @@ void FileBrowserController::handleFileSelection() {
     std::vector<std::string> elementNames;
     std::string fileContent;
     auto selectedFileType = selectionContext.getCurrentSelectedFileType();
+    auto& signingFlow = selectionContext.getTransactionSigningFlow();
+
+    if (selectedFileType == FileTypeEnum::TRANSACTION &&
+        signingFlow.stage() == services::TransactionSigningStage::REVIEW_AND_SIGN &&
+        !signingFlow.selectedPsbtPath().empty()) {
+        currentPath = signingFlow.selectedPsbtPath();
+    }
 
     // Check SD card
     manager.display.displaySubMessage("正在加载", 83);
@@ -18,10 +25,10 @@ void FileBrowserController::handleFileSelection() {
         manager.display.displaySubMessage("未找到 SD 卡", 38, 2000);
         manager.sdService.close(); // SD card stop
         if (selectionContext.getTransactionOngoing()) {
-            manager.clearLoadedWalletSecrets(selectionContext.getCurrentSelectedWallet());
+            manager.endTransactionSigning();
         }
         manager.selectionContext.setIsModeSelected(false);
-        selectionContext.setTransactionOngoing(false);
+        currentPath = "/";
         return;
     }
 
@@ -56,12 +63,11 @@ void FileBrowserController::handleFileSelection() {
     currentPath = "/"; // reset to root path
 
     if (selectionContext.getTransactionOngoing()) {
-        manager.clearLoadedWalletSecrets(selectionContext.getCurrentSelectedWallet());
+        manager.endTransactionSigning();
     }
     selectionContext.setIsModeSelected(false); // go back to menu
     selectionContext.setIsWalletSelected(false);
     selectionContext.setCurrentSelectedFileType(FileTypeEnum::WALLET); // default
-    selectionContext.setTransactionOngoing(false);
     
 }
 

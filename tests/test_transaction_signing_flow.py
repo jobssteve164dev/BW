@@ -53,3 +53,29 @@ def test_every_input_must_belong_to_and_be_signed_by_the_selected_wallet() -> No
     manager = (ROOT / "src/Managers/FileBrowserManager.cpp").read_text()
     assert "mergeSignedBitcoinTransaction(" in manager
     assert "fileContent, signedTransactionBytes, verifiedSignedTransaction" in manager
+
+
+def test_ending_signing_resets_secrets_flow_and_file_mode_together() -> None:
+    global_manager = (ROOT / "src/Managers/GlobalManager.cpp").read_text()
+    start = global_manager.index("void GlobalManager::endTransactionSigning()")
+    end = global_manager.index("\n}\n", start)
+    cleanup = global_manager[start:end]
+
+    assert "clearLoadedWalletSecrets" in cleanup
+    assert "getTransactionSigningFlow().cancel()" in cleanup
+    assert "setTransactionOngoing(false)" in cleanup
+    assert "setCurrentSelectedFileType(FileTypeEnum::WALLET)" in cleanup
+
+    terminal_paths = (
+        ROOT / "src/Controllers/FileBrowserController.cpp",
+        ROOT / "src/Controllers/SeedController.cpp",
+        ROOT / "src/Managers/SeedManager.cpp",
+        ROOT / "src/Managers/FileBrowserManager.cpp",
+    )
+    for path in terminal_paths:
+        assert "endTransactionSigning()" in path.read_text(), path
+
+    browser = (ROOT / "src/Controllers/FileBrowserController.cpp").read_text()
+    sd_failure = browser.index("if (!manager.sdService.getSdState())")
+    sd_failure_return = browser.index("return;", sd_failure)
+    assert 'currentPath = "/";' in browser[sd_failure:sd_failure_return]

@@ -45,6 +45,7 @@ public:
     std::vector<std::string> getCachedDirectoryElements(const std::string& path);
     void removeCachedDirectoryElement(const std::string& path);
 private:
+    void resetTransactionAttempt();
     bool confirmTransaction(const TransactionReview& review);
     void displaySignedTransactionQr(const std::vector<uint8_t>& signedTransaction);
 };

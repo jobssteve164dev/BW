@@ -40,6 +40,7 @@ void SeedController::handleSeedRestoration() {
   switch (restorationMethod) {
       case SeedRestorationModeEnum::NONE:
         if (transactionOngoing) {
+          manager.endTransactionSigning();
           selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
         } else {
           selectionContext.setIsModeSelected(false); // go to menu

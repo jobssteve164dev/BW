@@ -97,6 +97,33 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
     auto fileExt = extractFileExtension(fileName);
 
     if (fileExt == "psbt") {
+        auto& signingFlow = selectionContext.getTransactionSigningFlow();
+        auto signingWallet = selectionContext.getCurrentSelectedWallet();
+        if (signingFlow.stage() == TransactionSigningStage::SELECT_PSBT &&
+            !signingFlow.selectPsbt(currentPath, !signingWallet.getMnemonic().empty())) {
+            display.displaySubMessage("无法选择此交易", 42, 1800);
+            return false;
+        }
+
+        if (signingFlow.stage() == TransactionSigningStage::UNLOCK_SECRETS) {
+            const auto unlockResult = manageVaultUnlock(signingWallet);
+            if (unlockResult == VaultUnlockResult::UNLOCKED) {
+                signingFlow.secretsLoaded();
+            } else {
+                // Keep the selected PSBT while the user chooses RFID, an SD
+                // mnemonic file, or manual word entry.
+                selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SEED);
+                return true;
+            }
+        }
+
+        if (signingFlow.stage() != TransactionSigningStage::REVIEW_AND_SIGN ||
+            signingFlow.selectedPsbtPath() != currentPath) {
+            display.displaySubMessage("签名流程状态无效", 34, 1800);
+            resetTransactionAttempt();
+            return false;
+        }
+
         display.displayTopBar("检查交易", false, false, true);
         display.displaySubMessage("正在加载", 83);
 
@@ -104,7 +131,7 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
         auto fileContent = sdService.readBinaryFile(
             currentPath.c_str(), SdService::MAX_BINARY_FILE_SIZE);
 
-        auto signingWallet = selectionContext.getCurrentSelectedWallet();
+        signingWallet = selectionContext.getCurrentSelectedWallet();
         TransactionReview review;
         if (!cryptoService.inspectBitcoinTransaction(
                 fileContent,
@@ -112,10 +139,12 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
                 signingWallet.getPassphrase(),
                 review)) {
             display.displaySubMessage("无法安全读取交易详情", 18, 2500);
+            resetTransactionAttempt();
             return false;
         }
         if (!confirmTransaction(review)) {
             display.displaySubMessage("已取消签名", 60, 1500);
+            resetTransactionAttempt();
             return false;
         }
 
@@ -130,6 +159,7 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
         if (signedTransactionBytes.empty()) {
             signingWallet.clearSecrets();
             display.displaySubMessage("签名失败", 60, 2000);
+            resetTransactionAttempt();
             return false;
         }
 
@@ -140,9 +170,11 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
         signingWallet.clearSecrets();
         if (!signedTransactionMatches) {
             display.displaySubMessage("签名结果校验失败", 38, 2500);
+            resetTransactionAttempt();
             return false;
         }
         signedTransactionBytes.swap(verifiedSignedTransaction);
+        clearLoadedWalletSecrets(selectionContext.getCurrentSelectedWallet());
 
         // Sign success, means it's the correct seed for the correct transaction
         display.displaySubMessage("签名成功", 25, 2000);
@@ -160,6 +192,7 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
                 signedTransactionBytes)) {
             clearBytes(signedTransactionBytes);
             display.displaySubMessage("签名文件校验失败，原文件已保留", 5, 3000);
+            signingFlow.begin();
             return false;
         }
         const bool unsignedRemoved = sdService.deleteFile(currentPath.c_str());
@@ -178,19 +211,23 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
         auto signConfirmation = confirmationSelection.select("继续签名交易？");
         if (!signConfirmation) {
             // Go back to portfolio
-            clearLoadedWalletSecrets(selectionContext.getCurrentSelectedWallet());
+            endTransactionSigning();
             selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
-            selectionContext.setCurrentSelectedFileType(FileTypeEnum::WALLET);
-            selectionContext.setTransactionOngoing(false);
             return true;
         }
 
+        signingFlow.begin();
         return false;
 
     } 
 
     confirmationSelection.select("不支持此文件");
     return false;
+}
+
+void FileBrowserManager::resetTransactionAttempt() {
+    clearLoadedWalletSecrets(selectionContext.getCurrentSelectedWallet());
+    selectionContext.getTransactionSigningFlow().begin();
 }
 
 bool FileBrowserManager::confirmTransaction(const TransactionReview& review) {
@@ -296,10 +333,19 @@ bool FileBrowserManager::manageSeedLoadingFile(const std::string& currentPath) {
             selectionContext.setCurrentSelectedWallet(wallet);
             walletService.updateWallet(wallet);
 
-            // Go to file browser
+            if (!selectionContext.getTransactionSigningFlow().secretsLoaded()) {
+                endTransactionSigning();
+                selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
+                clearString(mnemonicString);
+                clearString(fileContent);
+                clearString(passphrase);
+                return false;
+            }
+
+            // Resume the PSBT selected before secret loading.
             selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
             selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
-            display.displaySubMessage("选择 PSBT 文件", 50, 3000);
+            display.displaySubMessage("正在返回已选交易", 35, 1200);
 
             clearString(mnemonicString);
             clearString(fileContent);

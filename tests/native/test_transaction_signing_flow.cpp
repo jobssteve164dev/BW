@@ -6,6 +6,7 @@
 
 #include "Services/BbqrEncoder.h"
 #include "Services/SegwitAddressEncoder.h"
+#include "Services/TransactionSigningFlow.h"
 #include "Services/TransactionReview.h"
 
 using services::BbqrEncoder;
@@ -13,8 +14,56 @@ using services::SegwitAddressEncoder;
 using services::TransactionOutputReview;
 using services::TransactionReview;
 using services::TransactionReviewService;
+using services::TransactionSigningFlow;
+using services::TransactionSigningStage;
 
 namespace {
+
+void testSigningSelectsPsbtBeforeRequestingSecrets() {
+    TransactionSigningFlow flow;
+    flow.begin();
+    assert(flow.stage() == TransactionSigningStage::SELECT_PSBT);
+    assert(flow.selectedPsbtPath().empty());
+    assert(!flow.secretsLoaded());
+
+    assert(flow.selectPsbt("/payments/outgoing.psbt", false));
+    assert(flow.stage() == TransactionSigningStage::UNLOCK_SECRETS);
+    assert(flow.selectedPsbtPath() == "/payments/outgoing.psbt");
+
+    assert(flow.secretsLoaded());
+    assert(flow.stage() == TransactionSigningStage::REVIEW_AND_SIGN);
+    assert(flow.selectedPsbtPath() == "/payments/outgoing.psbt");
+}
+
+void testSigningDoesNotAskForSecretsAlreadyLoaded() {
+    TransactionSigningFlow flow;
+    flow.begin();
+    assert(flow.selectPsbt("/ready.psbt", true));
+    assert(flow.stage() == TransactionSigningStage::REVIEW_AND_SIGN);
+}
+
+void testSigningCancellationClearsTheSelectedTransaction() {
+    TransactionSigningFlow flow;
+    flow.begin();
+    assert(!flow.selectPsbt("", false));
+    assert(flow.stage() == TransactionSigningStage::SELECT_PSBT);
+
+    assert(flow.selectPsbt("/cancel.psbt", false));
+    flow.cancel();
+    assert(flow.stage() == TransactionSigningStage::IDLE);
+    assert(flow.selectedPsbtPath().empty());
+}
+
+void testSigningRestartForgetsThePreviousPsbt() {
+    TransactionSigningFlow flow;
+    flow.begin();
+    assert(flow.selectPsbt("/payments/first.psbt", false));
+    assert(!flow.selectPsbt("/payments/second.psbt", false));
+
+    flow.begin();
+    assert(flow.stage() == TransactionSigningStage::SELECT_PSBT);
+    assert(flow.selectedPsbtPath().empty());
+}
 
 void testReviewComputesFeeFromEveryInputAndOutput() {
     std::vector<TransactionOutputReview> outputs = {
@@ -191,6 +240,10 @@ void testSegwitAddressEncodingCoversBech32AndBech32m() {
 } // namespace
 
 int main() {
+    testSigningSelectsPsbtBeforeRequestingSecrets();
+    testSigningDoesNotAskForSecretsAlreadyLoaded();
+    testSigningCancellationClearsTheSelectedTransaction();
+    testSigningRestartForgetsThePreviousPsbt();
     testReviewComputesFeeFromEveryInputAndOutput();
     testReviewRejectsMissingOutputsAndImpossibleFee();
     testReviewOnlyAcceptsSignaturesThatCommitToTheWholeTransaction();

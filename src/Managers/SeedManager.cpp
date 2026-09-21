@@ -197,7 +197,8 @@ bool SeedManager::manageMnemonicLoading(size_t wordCount) {
     auto zPub = cryptoService.deriveZPub(mnemonicString, passphrase);
     if (zPub.toString().c_str() != wallet.getZPub()) {
       display.displaySubMessage("助记词与钱包不匹配", 18, 3000);
-      selectionContext.setTransactionOngoing(false);
+      endTransactionSigning();
+      selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
       clearWords(mnemonic);
       clearString(mnemonicString);
       clearString(passphrase);
@@ -212,10 +213,19 @@ bool SeedManager::manageMnemonicLoading(size_t wordCount) {
     selectionContext.setCurrentSelectedWallet(wallet);
     walletService.updateWallet(wallet);
 
-    // Go to file browser
+    if (!selectionContext.getTransactionSigningFlow().secretsLoaded()) {
+      endTransactionSigning();
+      selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
+      clearWords(mnemonic);
+      clearString(mnemonicString);
+      clearString(passphrase);
+      return false;
+    }
+
+    // Resume the PSBT selected before secret loading.
     selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
     selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
-    display.displaySubMessage("选择 PSBT 文件", 50, 3000);
+    display.displaySubMessage("正在返回已选交易", 35, 1200);
 
     sdService.close(); // SD card stop
 
@@ -255,8 +265,8 @@ bool SeedManager::manageRfidSeedLoading() {
     auto zPub = cryptoService.deriveZPub(mnemonicString, passphrase);
     if (zPub.toString().c_str() != wallet.getZPub()) {
       display.displaySubMessage("助记词与钱包不匹配", 18, 4000);
+      endTransactionSigning();
       selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
-      selectionContext.setTransactionOngoing(false);
       clearWords(mnemonic);
       clearBytes(privateKey);
       clearString(mnemonicString);
@@ -274,12 +284,20 @@ bool SeedManager::manageRfidSeedLoading() {
     selectionContext.setCurrentSelectedWallet(wallet);
     walletService.updateWallet(wallet);
 
-    // Go to file browser
-    display.displaySubMessage("正在加载", 83);
+    if (!selectionContext.getTransactionSigningFlow().secretsLoaded()) {
+      endTransactionSigning();
+      selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
+      clearWords(mnemonic);
+      clearBytes(privateKey);
+      clearString(mnemonicString);
+      clearString(passphrase);
+      return false;
+    }
+
+    // Resume the PSBT selected before secret loading.
     selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
     selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
-
-    display.displaySubMessage("选择 PSBT 文件", 50, 3000);
+    display.displaySubMessage("正在返回已选交易", 35, 1200);
 
     clearWords(mnemonic);
     clearBytes(privateKey);

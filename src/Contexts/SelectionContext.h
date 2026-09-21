@@ -5,6 +5,7 @@
 #include <Models/Wallet.h>
 #include <Enums/SelectionModeEnum.h>
 #include <Enums/FileTypeEnum.h>
+#include <Services/TransactionSigningFlow.h>
 
 using namespace enums;
 using namespace models;
@@ -38,7 +39,9 @@ public:
     void setCurrentSelectedFileType(FileTypeEnum fileType);
 
 bool getTransactionOngoing() const;
-void setTransactionOngoing(bool transactionOngoing);
+    void setTransactionOngoing(bool transactionOngoing);
+
+    services::TransactionSigningFlow& getTransactionSigningFlow();
 
 private:
     // Private constructor for singleton
@@ -53,6 +56,7 @@ private:
     std::string currentFilePath;
     FileTypeEnum currentSelectedFileType = FileTypeEnum::WALLET;
     bool transactionOngoing = false;
+    services::TransactionSigningFlow transactionSigningFlow;
 };
 
 } // namespace contexts
