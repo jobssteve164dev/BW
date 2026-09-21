@@ -14,6 +14,14 @@ void clearSecret(std::string& value) {
     value.clear();
 }
 
+void clearBytes(std::vector<uint8_t>& value) {
+    volatile uint8_t* data = value.empty() ? nullptr : value.data();
+    for (size_t index = 0; index < value.size(); ++index) {
+        data[index] = 0;
+    }
+    value.clear();
+}
+
 void clearSecrets(std::vector<std::string>& values) {
     for (auto& value : values) {
         clearSecret(value);
@@ -220,7 +228,7 @@ bool GlobalManager::manageVaultSave(const std::vector<uint8_t>& entropy,
     password = stringPromptSelection.select("输入保险库密码", 0, true, true, 8);
   } else {
     password = confirmStringsMatch(
-        "设置保险库密码", "再次输入密码", "两次输入不一致", 8);
+        "设置保险库密码", "再次输入密码", "两次输入不一致", 12);
   }
   if (password.empty()) {
     return false;
@@ -358,63 +366,153 @@ std::string GlobalManager::confirmStringsMatch(const std::string& prompt1,
     return input1;
 }
 
-std::tuple<std::vector<uint8_t>, std::string> GlobalManager::manageRfidEncryption(std::vector<uint8_t> privateKey) {
-    display.displaySubMessage("正在加载", 83, 800); // Add some time to avoid double input
-    auto encryptConfirmation = confirmationSelection.select("加密助记词备份？");
-    if (!encryptConfirmation) { 
-        return {privateKey, ""};
+RfidEncryptedBackup GlobalManager::manageRfidEncryption(
+    const std::vector<uint8_t>& privateKey) {
+    RfidEncryptedBackup backup;
+    if (RfidBackupFormat::encryptedMarker(privateKey.size()) == 0) {
+        return {};
     }
 
-    // Get salt and encrypt key
-    auto salt = cryptoService.getRandomString(16); // 16 bytes, not chars
-    auto password = confirmStringsMatch("输入密码", "再次输入密码", "两次输入不一致");
-    display.displaySubMessage("正在加载", 83);
-    auto encryptedKey = cryptoService.encryptPrivateKeyWithPassphrase(privateKey, password, salt);
-
-    return {encryptedKey, salt};
+    auto password = confirmStringsMatch(
+        "设置 RFID 密码", "再次输入密码", "两次输入不一致", 12);
+    display.displaySubMessage("正在加密", 63);
+    if (!RfidBackupCodec::encrypt(cryptoService, privateKey, password, backup)) {
+        backup = {};
+    }
+    clearSecret(password);
+    return backup;
 }
 
 std::vector<uint8_t> GlobalManager::manageRfidDecryption() {
     // Get private key, salt and signature
+    const auto metadata = rfidService.getMetadata();
     auto privateKey = rfidService.getPrivateKey();
     if (privateKey.empty()) {
       display.displaySubMessage("读取密钥失败", 38, 1000);
       return {};
     }
     auto salt = rfidService.getSalt();
-    auto sign = rfidService.getCheckSum(); 
+    auto sign = rfidService.getCheckSum();
     ledService.blink(); // to signal RFID reading
 
     // If salt is empty, the seed is not emcrypted
-    auto saltIsEmpty = std::all_of(salt.begin(), salt.end(), [](int value) { return value == 0; });
+    const auto saltIsEmpty = salt.size() == RfidBackupFormat::SALT_SIZE &&
+        std::all_of(salt.begin(), salt.end(), [](uint8_t value) { return value == 0; });
+
+    if (RfidBackupFormat::isAuthenticated(metadata)) {
+      RfidEncryptedBackup backup;
+      backup.ciphertext = privateKey;
+      backup.salt = salt;
+      backup.tag = sign;
+      backup.metadata = metadata;
+      if (salt.size() != RfidBackupFormat::SALT_SIZE ||
+          sign.size() != RfidBackupFormat::TAG_SIZE) {
+        clearBytes(privateKey);
+        clearBytes(salt);
+        clearBytes(sign);
+        display.displaySubMessage("RFID 备份损坏", 42, 2000);
+        return {};
+      }
+
+      while (true) {
+        auto password = stringPromptSelection.select("输入 RFID 密码", 8, true, true, 12);
+        if (password.empty()) {
+          clearBytes(privateKey);
+          clearBytes(salt);
+          clearBytes(sign);
+          return {};
+        }
+
+        std::vector<uint8_t> decryptedKey;
+        const bool decrypted = RfidBackupCodec::decrypt(
+            cryptoService, backup, password, decryptedKey);
+        clearSecret(password);
+        if (decrypted) {
+          clearBytes(privateKey);
+          clearBytes(salt);
+          clearBytes(sign);
+          display.displaySubMessage("助记词已解密", 48, 2000);
+          return decryptedKey;
+        }
+        clearBytes(decryptedKey);
+        display.displaySubMessage("密码错误或标签被篡改", 18, 1800);
+      }
+    }
+
+    if (saltIsEmpty) {
+      clearBytes(salt);
+      clearBytes(sign);
+      display.displaySubMessage("警告：这是明文 RFID 备份", 8, 2500);
+      return privateKey;
+    }
+
+    if (salt.size() != RfidBackupFormat::SALT_SIZE ||
+        sign.size() != RfidBackupFormat::TAG_SIZE) {
+      clearBytes(privateKey);
+      clearBytes(salt);
+      clearBytes(sign);
+      display.displaySubMessage("旧 RFID 备份损坏", 32, 2000);
+      return {};
+    }
 
     bool validation = false;
     while (!validation && privateKey.size() % 16 == 0 && !saltIsEmpty) {
       // Ask password
-      auto password = stringPromptSelection.select("输入密码", 8, true, true);
-      if (password.empty()) {return {};} // return button
+      auto password = stringPromptSelection.select("输入旧 RFID 密码", 8, true, true);
+      if (password.empty()) {
+        clearBytes(privateKey);
+        clearBytes(salt);
+        clearBytes(sign);
+        return {};
+      }
 
       // Decrypt
       display.displaySubMessage("正在加载", 83);
-      auto decryptedKey = cryptoService.decryptPrivateKeyWithPassphrase(privateKey, password, salt);
-      auto generatedSign = cryptoService.generateChecksum(decryptedKey, salt);
+      std::string legacySalt(salt.begin(), salt.end());
+      std::vector<uint8_t> decryptedKey;
+      std::vector<uint8_t> generatedSign;
+      try {
+        decryptedKey = cryptoService.decryptPrivateKeyWithPassphrase(
+            privateKey, password, legacySalt);
+        generatedSign = cryptoService.generateChecksum(decryptedKey, legacySalt);
+      } catch (const std::exception&) {
+        clearSecret(password);
+        clearSecret(legacySalt);
+        clearBytes(decryptedKey);
+        clearBytes(generatedSign);
+        clearBytes(privateKey);
+        clearBytes(salt);
+        clearBytes(sign);
+        display.displaySubMessage("旧 RFID 解密失败", 29, 1800);
+        return {};
+      }
+      clearSecret(password);
+      clearSecret(legacySalt);
 
       // Verify
       validation = sign == generatedSign;
       if(validation) {
-        privateKey = decryptedKey;
-        display.displaySubMessage("助记词已解密", 48, 2000);
+        clearBytes(privateKey);
+        privateKey.swap(decryptedKey);
+        display.displaySubMessage("旧标签已解密，请重新加密备份", 8, 2800);
       } else {
+        clearBytes(decryptedKey);
         display.displaySubMessage("密码错误", 55, 1500);
       }
+      clearBytes(generatedSign);
     }
+    clearBytes(salt);
+    clearBytes(sign);
     return privateKey;
 }
 
 void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
   // Confirm RFID before showing hardware-specific instructions.
   auto rfidConfirmation = confirmationSelection.select("另存到 RFID？");
-  if (!rfidConfirmation) { return; }
+  if (!rfidConfirmation) {
+    clearBytes(privateKey);
+    return;
+  }
 
   // Display RFID
   display.displaySeedRfid();
@@ -425,15 +523,19 @@ void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
   auto initialised = rfidService.initialize();
   if(!initialised) {
      display.displaySubMessage("未检测到 RFID 模块", 48, 2500);
+     clearBytes(privateKey);
      return;
   }
 
-  // Get salt, key, sign
-  std::vector<uint8_t> returnedKey;
-  std::string salt;
-  std::tie(returnedKey, salt) = manageRfidEncryption(privateKey);
-  auto signature = cryptoService.generateChecksum(privateKey, salt);
-  auto splittedKey = cryptoService.splitVector(returnedKey); // return {key, {}} for 16 bytes seed
+  // New RFID backups are always password-protected and authenticated.
+  auto backup = manageRfidEncryption(privateKey);
+  if (backup.metadata == 0 || backup.ciphertext.empty()) {
+    display.displaySubMessage("RFID 加密失败", 42, 2000);
+    rfidService.end();
+    clearBytes(privateKey);
+    return;
+  }
+  auto splittedKey = cryptoService.splitVector(backup.ciphertext);
   
   display.displaySubMessage("请放置 RFID 标签", 43);
   const unsigned long timeout = 5000; // 5 seconds
@@ -462,7 +564,7 @@ void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
     // Tag already contains a seed
     if (!eraseConfirmation) {
       auto metadataByte = rfidService.getMetadata();
-      if (metadataByte == 32 || metadataByte == 16) {
+      if (RfidBackupFormat::seedLength(metadataByte) != 0) {
         display.displaySubMessage("标签已有助记词", 28, 1500);
         eraseConfirmation = confirmationSelection.select("覆盖此标签？");
         display.displaySubMessage("请放置 RFID 标签", 43);
@@ -472,38 +574,31 @@ void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
       }
     }
 
-    // Save private key
-    auto privateKeySaved = rfidService.savePrivateKey(splittedKey.first, splittedKey.second);
-    if (!privateKeySaved) {
-        display.displaySubMessage("保存密钥失败", 36, 1000);
-        continue;
-    }
-
-    // Save salt with zeros if no encryption
-    auto saltSaved = rfidService.saveSalt(salt);
-    if (!saltSaved) {
-        display.displaySubMessage("保存盐值失败", 34, 1000);
-        continue;
-    }
-
-    // Save sign as a checksum for data
-    auto signSaved = rfidService.saveChecksum(signature);
-    if (!signSaved) {
-        display.displaySubMessage("保存校验值失败", 34, 1000);
-        continue;
-    }
-
-    // Save seed length
-    auto lengthSaved = rfidService.saveMetadata(privateKey.size());
-    if (!lengthSaved) {
-        display.displaySubMessage("保存长度失败", 28, 1000);
+    const auto writeStatus = RfidBackupWriter::write(
+        rfidService,
+        splittedKey.first,
+        splittedKey.second,
+        backup.salt,
+        backup.tag,
+        backup.metadata);
+    if (writeStatus != RfidWriteStatus::OK) {
+        display.displaySubMessage("RFID 写入结果未确认", 10, 1500);
         continue;
     }
 
     ledService.blink();
     display.displaySubMessage("助记词已保存", 54, 2500);
+    clearBytes(backup.ciphertext);
+    clearBytes(backup.salt);
+    clearBytes(backup.tag);
+    clearBytes(privateKey);
+    rfidService.end();
     return;
   }
+  clearBytes(backup.ciphertext);
+  clearBytes(backup.salt);
+  clearBytes(backup.tag);
+  clearBytes(privateKey);
   rfidService.end();
 }
 
@@ -528,6 +623,7 @@ std::vector<uint8_t> GlobalManager::manageRfidRead() {
         auto continueProcess = confirmationSelection.select("重试读取标签？");
         if (!continueProcess) {
             display.displaySubMessage("已取消读取 RFID", 30, 2000);
+            rfidService.end();
             return privateKey;
         }
         rfidService.reset();
@@ -544,6 +640,7 @@ std::vector<uint8_t> GlobalManager::manageRfidRead() {
     // Return key if not empty
     privateKey = manageRfidDecryption();
     if (!privateKey.empty()) {
+      rfidService.end();
       return privateKey;
     }
   }
@@ -570,8 +667,10 @@ std::vector<uint8_t> GlobalManager::manageBitcoinSignature(const std::string& ps
     return signedTransactionBytes;
 }
 
-Wallet GlobalManager::manageBitcoinWalletCreation(std::string mnemonic, std::string passphrase, 
-                                                  std::string walletName, bool loadedConfirmation) {
+Wallet GlobalManager::manageBitcoinWalletCreation(const std::string& mnemonic,
+                                                  const std::string& passphrase,
+                                                  const std::string& walletName,
+                                                  bool loadedConfirmation) {
     // Derive public keys and create segwit BTC address
     display.displaySubMessage("正在加载", 83);
     auto zpub = cryptoService.deriveZPub(mnemonic, passphrase);

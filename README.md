@@ -3,7 +3,7 @@
 BW 是运行在 **M5Cardputer ADV** 上的中文比特币钱包工具。它可以离线生成 BIP39 助记词、查看钱包公开信息，并使用加密 SD 保险库、手动输入的助记词或 RFID 标签为 PSBT 交易签名。
 
 > [!CAUTION]
-> 本项目仍处于实验阶段，未经专业安全审计。请先在测试钱包和小额资金上完整验证。任何人都不应向你索要助记词或附加密码。
+> 本项目已完成代码级威胁审计，但没有经过独立硬件实验室认证，Cardputer ADV 也不具备安全元件。请先在测试钱包和小额资金上完整验证，并阅读 [安全模型与剩余风险](./SECURITY.md)。任何人都不应向你索要助记词或附加密码。
 
 ![BW 运行效果](./images/bitcoin-card-wallet.jpg)
 
@@ -14,6 +14,7 @@ BW 是运行在 **M5Cardputer ADV** 上的中文比特币钱包工具。它可�
 - 从键盘、SD 卡或 MIFARE 1K RFID 标签恢复助记词；
 - 使用可选附加密码保护钱包；
 - 使用密码将种子熵和 BIP39 附加密码加密保存到 SD 卡；
+- 新 RFID 备份强制使用密码和认证加密，不再创建明文标签；
 - 开机自动读取上次使用的钱包文件，签名时按需解锁加密保险库；
 - 读取并签名 SD 卡中的 PSBT 文件；
 - 显示地址二维码，或通过 USB 键盘模式输入地址；
@@ -23,15 +24,15 @@ BW 是运行在 **M5Cardputer ADV** 上的中文比特币钱包工具。它可�
 
 ## SD 加密保险库
 
-创建或恢复钱包时，可以将种子熵和该钱包的 BIP39 附加密码保存到 `/bw-vault.dat`。保险库使用 PBKDF2-HMAC-SHA256 派生密钥，并以 AES-256-GCM 加密和校验内容。已有保险库可容纳多个钱包，但新增钱包时必须输入同一个保险库密码。
+创建或恢复钱包时，可以将种子熵和该钱包的 BIP39 附加密码保存到 `/bw-vault.dat`。新保险库使用 16 字节随机盐、PBKDF2-HMAC-SHA256 600,000 次派生密钥，并以 AES-256-GCM 加密和校验内容。已有保险库可容纳多个钱包，但新增钱包时必须输入同一个保险库密码。
 
-启动时，BW 会从设备 NVS 读取上次使用的钱包文件路径，并自动加载其中的公开钱包信息。签名时如果保险库中存在对应钱包，设备会要求输入至少 8 个字符的保险库密码；解锁失败不会回退到明文数据。
+启动时，BW 会从设备 NVS 读取上次使用的钱包文件路径，并自动加载其中的公开钱包信息。新保险库密码至少 12 个字符；为兼容旧备份，旧保险库仍允许原有 8 字符密码解锁。解锁失败不会回退到明文数据。
 
 保险库密码与 BIP39 附加密码用途不同。忘记保险库密码后无法读取加密文件，因此纸质助记词和 BIP39 附加密码仍必须独立备份。完整擦除设备可能清除 NVS 中保存的钱包文件路径，但不会删除 SD 卡文件。
 
 ## 下载固件
 
-打开仓库的 **Actions → 构建 M5Cardputer ADV 固件**，进入最近一次成功运行，在 Artifacts 中下载 `BW-Cardputer-ADV-firmware`。
+优先从仓库 **Releases** 下载最新正式标签对应的固件。若使用 **Actions → 构建 M5Cardputer ADV 固件**，只选择 `main` 分支上与你核对过提交号的成功运行；不要下载 Pull Request 产生的固件。
 
 下载包包含：
 
@@ -50,7 +51,7 @@ esptool.py --chip esp32s3 --port <串口> write_flash 0x0 BW-Cardputer-ADV-full.
 ## 基本使用
 
 1. 首次使用选择“创建钱包”，在纸上准确抄写 24 个英文单词并完成抽查。
-2. 插入 SD 卡并选择“加密备份到 SD”，设置至少 8 个字符的保险库密码；RFID 仅作为额外的可选备份。
+2. 插入 SD 卡并选择“加密备份到 SD”，设置至少 12 个字符的保险库密码；8 字符仅用于兼容解锁既有旧保险库。RFID 仅作为额外的可选备份。
 3. 在 Sparrow 等钱包中用 zpub 建立仅观察钱包并导出 PSBT。
 4. 把 PSBT 放入 SD 卡，在 BW 中选择钱包，逐项核对全部输出地址、金额和网络手续费。
 5. 确认无误后完成离线签名；固件会生成 `*-signed.psbt`，并可显示供 Sparrow 扫描的动态签名二维码。
@@ -76,6 +77,8 @@ BW 由 [SZLK LTD](https://szlk.ai) 维护，联系邮箱：[admin@szlk.site](mai
 本项目基于 [geo-tp/Bitcoin-Card-Wallet](https://github.com/geo-tp/Bitcoin-Card-Wallet) 汉化并适配 M5Cardputer ADV。上游提交与许可信息见 [NOTICE](./NOTICE)，项目继续采用 MIT License。
 
 <!-- Upstream English documentation is preserved below for reference. -->
+
+> 下方内容是上游历史文档，不代表当前固件的安全行为。当前版本不会新建明文 RFID 备份；准确边界以本页中文说明和 [SECURITY.md](./SECURITY.md) 为准。
 
 <details>
 <summary>上游英文说明</summary>

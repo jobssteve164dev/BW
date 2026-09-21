@@ -32,7 +32,7 @@ void UsbService::sendString(const std::string& text) {
             M5Cardputer.Display.setFont(&fonts::efontCN_16);
             M5Cardputer.Display.setTextSize(1.0f);
             M5Cardputer.Display.setCursor(10, 10);
-            M5Cardputer.Display.print("发送失败：" + c);
+            M5Cardputer.Display.print((std::string("发送失败：") + c).c_str());
             delay(3000);
         }
     }
@@ -43,6 +43,9 @@ bool UsbService::isReady() const {
 }
 
 void UsbService::sendChunkedString(const std::string& data, size_t chunkSize, unsigned long delayBetweenChunks) {
+    if (chunkSize == 0) {
+        return;
+    }
     size_t totalLength = data.length();
     size_t sentLength = 0;
 

@@ -27,6 +27,13 @@ std::string StringPromptSelection::select(std::string description,
             }
         }
         else if (key == KEY_RETURN_CUSTOM && backButton) {
+            if (password) {
+                volatile char* data = output.empty() ? nullptr : &output[0];
+                for (size_t index = 0; index < output.size(); ++index) {
+                    data[index] = 0;
+                }
+                output.clear();
+            }
             return ""; // empty string will not save
         }
         else if (isprint(key) && output.size() < limit) {

@@ -101,7 +101,8 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
         display.displaySubMessage("正在加载", 83);
 
         // Read file
-        auto fileContent = sdService.readBinaryFile(currentPath.c_str());
+        auto fileContent = sdService.readBinaryFile(
+            currentPath.c_str(), SdService::MAX_BINARY_FILE_SIZE);
 
         auto signingWallet = selectionContext.getCurrentSelectedWallet();
         TransactionReview review;
@@ -252,7 +253,10 @@ bool FileBrowserManager::manageSeedLoadingFile(const std::string& currentPath) {
     std::string passphrase;
 
     if (fileExt == "txt") {
-        auto fileContent = sdService.readFile(currentPath.c_str());
+        if (!confirmationSelection.select("明文助记词不安全，继续？")) {
+            return false;
+        }
+        auto fileContent = sdService.readFile(currentPath.c_str(), 512);
         if (verifySeedFile(fileContent)) {
             auto mnemonicString = fileContent;
             auto mnemonicWordList = cryptoService.mnemonicStringToWordList(fileContent);
@@ -317,7 +321,10 @@ bool FileBrowserManager::manageSeedRestorationFile(const std::string& currentPat
     std::string passphrase;
 
     if (fileExt == "txt") {
-        auto fileContent = sdService.readFile(currentPath.c_str());
+        if (!confirmationSelection.select("明文助记词不安全，继续？")) {
+            return false;
+        }
+        auto fileContent = sdService.readFile(currentPath.c_str(), 512);
         if (verifySeedFile(fileContent)) {
             auto mnemonicString = fileContent;
             auto mnemonicWordList = cryptoService.mnemonicStringToWordList(fileContent);

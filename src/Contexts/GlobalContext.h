@@ -100,8 +100,8 @@ private:
     int sdCardMISOPin = 39;
     int sdCardMOSIPin = 14;
     int sdCardCLKPin = 40;
-    int fileCacheLimit = 24;
-    int fileCountLimit = 512;
+    int fileCacheLimit = 4;
+    int fileCountLimit = 128;
 
     // I2C
     int sdaPin = 2;

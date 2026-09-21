@@ -32,11 +32,11 @@ bool SdService::isFile(const std::string filePath) {
         return false;
     }
     File f = SD.open(filePath.c_str());
-    if (f && !f.isDirectory()) {
+    const bool regularFile = f && !f.isDirectory();
+    if (f) {
         f.close();
-        return true;
-    }  
-    return false;     
+    }
+    return regularFile;
 }
 
 bool SdService::getSdState() {
@@ -62,33 +62,34 @@ std::vector<std::string> SdService::listElements(std::string dirPath, size_t lim
     }
 
     if (!dir.isDirectory()) {
+        dir.close();
         return filesList;
     }
 
     File file = dir.openNextFile();
     if (!file) {
+        dir.close();
         return filesList;
     }
 
     size_t i = 0;
-    while (file) {
+    while (file && i < limit) {
+        const char* name = file.name();
         // Avoid hidden elements
-        if (file.name()[0] != '.') {
+        if (name && name[0] != '\0' && name[0] != '.') {
             if (file.isDirectory()) {
-                foldersList.push_back(file.name());
+                foldersList.push_back(name);
             } else {
-                filesList.push_back(file.name());
+                filesList.push_back(name);
             }
-            i++;
         }
-
-        // limit
-        if (i > limit) {
-            break;
-        }
+        ++i;
 
         file = dir.openNextFile();
     }
+
+    file.close();
+    dir.close();
 
     // Sort both folders and files alphabetically
     std::sort(foldersList.begin(), foldersList.end());
@@ -101,7 +102,10 @@ std::vector<std::string> SdService::listElements(std::string dirPath, size_t lim
 
 }
 
-std::vector<uint8_t> SdService::readBinaryFile(const char* filePath) {
+constexpr size_t SdService::MAX_TEXT_FILE_SIZE;
+constexpr size_t SdService::MAX_BINARY_FILE_SIZE;
+
+std::vector<uint8_t> SdService::readBinaryFile(const char* filePath, size_t maximumSize) {
     std::vector<uint8_t> content;
     if (!sdCardMounted) {
         return content;
@@ -109,16 +113,17 @@ std::vector<uint8_t> SdService::readBinaryFile(const char* filePath) {
 
     File file = SD.open(filePath, FILE_READ);
     if (file) {
-        content.reserve(file.size());
-        while (file.available()) {
-            content.push_back(file.read());
-        }
+        const bool read = BoundedFileReader::read(
+            file, static_cast<size_t>(file.size()), maximumSize, content);
         file.close();
+        if (!read) {
+            content.clear();
+        }
     }
     return content;
 }
 
-std::string SdService::readFile(const char* filePath) {
+std::string SdService::readFile(const char* filePath, size_t maximumSize) {
     std::string content;
     if (!sdCardMounted) {
         return content;
@@ -126,10 +131,13 @@ std::string SdService::readFile(const char* filePath) {
 
     File file = SD.open(filePath);
     if (file) {
-        while (file.available()) {
-            content += (char)file.read();
-        }
+        std::vector<uint8_t> bytes;
+        const bool read = BoundedFileReader::read(
+            file, static_cast<size_t>(file.size()), maximumSize, bytes);
         file.close();
+        if (read) {
+            content.assign(bytes.begin(), bytes.end());
+        }
     }
     return content;
 }

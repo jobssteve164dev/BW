@@ -14,6 +14,17 @@ struct VaultRecord {
     std::vector<uint8_t> entropy;
     std::string passphrase;
 
+    ~VaultRecord() {
+        volatile uint8_t* entropyData = entropy.empty() ? nullptr : entropy.data();
+        for (size_t index = 0; index < entropy.size(); ++index) {
+            entropyData[index] = 0;
+        }
+        volatile char* passphraseData = passphrase.empty() ? nullptr : &passphrase[0];
+        for (size_t index = 0; index < passphrase.size(); ++index) {
+            passphraseData[index] = 0;
+        }
+    }
+
     bool operator==(const VaultRecord& other) const {
         return fingerprint == other.fingerprint && zpub == other.zpub && entropy == other.entropy &&
                passphrase == other.passphrase;

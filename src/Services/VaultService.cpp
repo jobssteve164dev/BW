@@ -20,7 +20,11 @@ VaultStatus VaultService::inspect() {
         }
         found = true;
         VaultEnvelope envelope;
-        if (VaultCodec::decodeEnvelope(sdService.readBinaryFile(path), envelope)) {
+        if (VaultCodec::decodeEnvelope(
+                sdService.readBinaryFile(
+                    path, VaultCodec::HEADER_SIZE + VaultCodec::MAX_CIPHERTEXT_SIZE +
+                              VaultCodec::TAG_SIZE),
+                envelope)) {
             return VaultStatus::OK;
         }
     }
@@ -56,7 +60,8 @@ VaultStatus VaultService::loadFromPath(const char* path,
         return VaultStatus::NOT_FOUND;
     }
 
-    const auto fileContent = sdService.readBinaryFile(path);
+    const auto fileContent = sdService.readBinaryFile(
+        path, VaultCodec::HEADER_SIZE + VaultCodec::MAX_CIPHERTEXT_SIZE + VaultCodec::TAG_SIZE);
     VaultEnvelope envelope;
     if (!VaultCodec::decodeEnvelope(fileContent, envelope)) {
         return VaultStatus::INVALID_FORMAT;

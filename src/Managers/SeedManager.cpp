@@ -1,5 +1,6 @@
 #include "SeedManager.h"
 #include <algorithm>
+#include <cstring>
 #include <stdexcept>
 
 namespace managers {
@@ -36,8 +37,10 @@ SeedManager::SeedManager(const GlobalManager& gm)
 
 std::vector<uint8_t> SeedManager::managePrivateKey() {
   // Generate private keys and verify randomness
+  EntropyContext::getInstance().collect();
   std::vector<uint8_t> privateKey;
   do {
+    clearBytes(privateKey);
     privateKey = cryptoService.generatePrivateKey();
   } while (cryptoService.calculateShanonEntropy(privateKey) < 4.9);
 
@@ -58,8 +61,11 @@ void SeedManager::manageMnemonicRead(std::vector<std::string>& mnemonic) {
     // Verify Backup
     mnemonicVerification = confirmationSelection.select("验证备份？");
     if (mnemonicVerification) {
-      // Random num for a word index
-      randomNumber = rand() % mnemonic.size();
+      // Use the hardware entropy source so the verification word is not predictable.
+      const auto randomBytes = cryptoService.generateRandomEsp32(sizeof(uint32_t));
+      uint32_t randomValue = 0;
+      std::memcpy(&randomValue, randomBytes.data(), sizeof(randomValue));
+      randomNumber = static_cast<uint8_t>(randomValue % mnemonic.size());
       // Ask user the correct word for the given index
       display.displayTopBar("验证助记词", false, false, true);
       auto question = "输入第 " + std::to_string(randomNumber + 1) + " 个单词";
@@ -99,7 +105,6 @@ std::vector<std::string> SeedManager::manageMnemonicWrite(size_t wordCount) {
     // Check if valid mnemonic
     auto mnemonicString = cryptoService.mnemonicVectorToString(mnemonicWords);
     auto mnemonicWordList = cryptoService.mnemonicStringToWordList(mnemonicString);
-    auto privateKey = cryptoService.mnemonicToPrivateKey(mnemonicString);
     if (mnemonicString.empty() || !cryptoService.verifyMnemonic(mnemonicWordList)) {
       return {};
     }

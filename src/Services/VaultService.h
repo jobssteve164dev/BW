@@ -25,7 +25,7 @@ public:
     static constexpr const char* TEMPORARY_PATH = "/bw-vault.tmp";
     static constexpr const char* BACKUP_PATH = "/bw-vault.bak";
     static constexpr const char* CORRUPT_PATH = "/bw-vault.bad";
-    static constexpr uint32_t KDF_ITERATIONS = 200000;
+    static constexpr uint32_t KDF_ITERATIONS = 600000;
 
     VaultService(CryptoService& cryptoService, SdService& sdService);
 

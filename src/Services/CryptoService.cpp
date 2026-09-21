@@ -18,6 +18,31 @@
 namespace services {
 namespace {
 
+class HardwareEntropyScope {
+public:
+    HardwareEntropyScope() { bootloader_random_enable(); }
+    ~HardwareEntropyScope() { bootloader_random_disable(); }
+
+    HardwareEntropyScope(const HardwareEntropyScope&) = delete;
+    HardwareEntropyScope& operator=(const HardwareEntropyScope&) = delete;
+};
+
+void secureClear(std::vector<uint8_t>& value) {
+    volatile uint8_t* data = value.empty() ? nullptr : value.data();
+    for (size_t index = 0; index < value.size(); ++index) {
+        data[index] = 0;
+    }
+    value.clear();
+}
+
+void secureClear(std::string& value) {
+    volatile char* data = value.empty() ? nullptr : &value[0];
+    for (size_t index = 0; index < value.size(); ++index) {
+        data[index] = 0;
+    }
+    value.clear();
+}
+
 std::string outputAddress(const wally_tx_output& output) {
     if (!output.script || output.script_len < 4) {
         return "";
@@ -149,17 +174,25 @@ std::vector<uint8_t> CryptoService::generateRandomMbetls(size_t size) {
 
     // Seed the DRBG
     auto pers = getRandomString(32); // length of the string
-    mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                          reinterpret_cast<const unsigned char*>(pers.c_str()),
-                          pers.length());
+    HardwareEntropyScope entropyScope;
+    const int seedResult = mbedtls_ctr_drbg_seed(
+        &ctr_drbg, mbedtls_entropy_func, &entropy,
+        reinterpret_cast<const unsigned char*>(pers.data()), pers.length());
 
     // Get random
     std::vector<uint8_t> randomData(size);
-    mbedtls_ctr_drbg_random(&ctr_drbg, randomData.data(), size);
-
+    const int randomResult = seedResult == 0
+        ? mbedtls_ctr_drbg_random(&ctr_drbg, randomData.data(), size)
+        : seedResult;
     // Release context
     mbedtls_ctr_drbg_free(&ctr_drbg);
     mbedtls_entropy_free(&entropy);
+    secureClear(pers);
+
+    if (randomResult != 0) {
+        secureClear(randomData);
+        throw std::runtime_error("Failed to generate random data");
+    }
 
     return randomData;
 }
@@ -167,9 +200,8 @@ std::vector<uint8_t> CryptoService::generateRandomMbetls(size_t size) {
 std::vector<uint8_t> CryptoService::generateRandomEsp32(size_t size) {
     // Get entropy from esp32 HRNG
     std::vector<uint8_t> randomData(size);
-    bootloader_random_enable();
+    HardwareEntropyScope entropyScope;
     esp_fill_random(randomData.data(), randomData.size());
-    bootloader_random_disable();
     
     return randomData;
 }
@@ -179,6 +211,7 @@ std::vector<uint8_t> CryptoService::generateRandomBuiltin(size_t size) {
     std::vector<uint8_t> randomData(size);
     size_t i = 0;
 
+    HardwareEntropyScope entropyScope;
     while (i < size) {
         // 32 bits integer
         uint32_t randVal = esp_random();
@@ -189,41 +222,59 @@ std::vector<uint8_t> CryptoService::generateRandomBuiltin(size_t size) {
 
         i += bytesToCopy;
     }
-
     return randomData;
 }
 
 std::string CryptoService::getRandomString(size_t length) {
     auto randomData = generateRandomEsp32(length);
     std::string randomString(randomData.begin(), randomData.end());
+    secureClear(randomData);
 
     return randomString;
 }
 
 std::vector<uint8_t> CryptoService::generatePrivateKey(size_t keySize) {
-    // Get entropy from hardware and software
-    auto entropyEsp32 = generateRandomEsp32(keySize);
-    auto entropyMbedtls = generateRandomMbetls(keySize);
-    auto entropyBuiltin = generateRandomBuiltin(keySize);
-
-    // Get entropy from user action
-    auto entropyUser = entropyContext.getAccumulatedEntropy();
-
-    // Control size
-    if (entropyEsp32.size() != keySize || entropyMbedtls.size() != keySize || entropyBuiltin.size() != keySize) {
-        throw std::runtime_error("Failed to generate sufficient entropy");
+    if (keySize != 32) {
+        throw std::invalid_argument("BIP39 24-word entropy must be 32 bytes");
     }
+    std::vector<uint8_t> entropyEsp32;
+    std::vector<uint8_t> entropyMbedtls;
+    std::vector<uint8_t> entropyBuiltin;
+    std::vector<uint8_t> entropyUser;
+    std::vector<uint8_t> hashedEntropyUser;
+    std::vector<uint8_t> mixedKey;
+    try {
+        entropyEsp32 = generateRandomEsp32(keySize);
+        entropyMbedtls = generateRandomMbetls(keySize);
+        entropyBuiltin = generateRandomBuiltin(keySize);
+        entropyUser = entropyContext.getAccumulatedEntropy();
 
-    // Process SHA256 on the user entropy
-    auto hashedEntropyUser = hashSha256(entropyUser, keySize);
+        if (entropyEsp32.size() != keySize || entropyMbedtls.size() != keySize ||
+            entropyBuiltin.size() != keySize) {
+            throw std::runtime_error("Failed to generate sufficient entropy");
+        }
 
-    // Mix entropy with XOR
-    auto mixedKey = mixEntropy(entropyMbedtls, entropyEsp32, 
-                                               entropyBuiltin, hashedEntropyUser);
-    // Process SHA256 on the result
-    auto privateKey = hashSha256(mixedKey, keySize);
+        hashedEntropyUser = hashSha256(entropyUser, keySize);
+        mixedKey = mixEntropy(
+            entropyMbedtls, entropyEsp32, entropyBuiltin, hashedEntropyUser);
+        auto privateKey = hashSha256(mixedKey, keySize);
 
-    return privateKey;
+        secureClear(entropyEsp32);
+        secureClear(entropyMbedtls);
+        secureClear(entropyBuiltin);
+        secureClear(entropyUser);
+        secureClear(hashedEntropyUser);
+        secureClear(mixedKey);
+        return privateKey;
+    } catch (...) {
+        secureClear(entropyEsp32);
+        secureClear(entropyMbedtls);
+        secureClear(entropyBuiltin);
+        secureClear(entropyUser);
+        secureClear(hashedEntropyUser);
+        secureClear(mixedKey);
+        throw;
+    }
 }
 
 std::vector<std::string> CryptoService::privateKeyToMnemonic(const std::vector<uint8_t>& privateKey) {
@@ -281,7 +332,12 @@ std::vector<uint8_t> CryptoService::mnemonicToPrivateKey(const std::string& mnem
         sizeof(buffer)            // Buffer size
     );
 
-    return std::vector<uint8_t>(buffer, buffer + written);
+    std::vector<uint8_t> entropy(buffer, buffer + written);
+    volatile uint8_t* bufferData = buffer;
+    for (size_t index = 0; index < sizeof(buffer); ++index) {
+        bufferData[index] = 0;
+    }
+    return entropy;
 }
 
 bool CryptoService::verifyMnemonic(BIP39::word_list mnemonic) {
@@ -289,14 +345,22 @@ bool CryptoService::verifyMnemonic(BIP39::word_list mnemonic) {
 }
 
 std::vector<uint8_t> CryptoService::hashSha256(const std::vector<uint8_t>& entropy, size_t keySize) {
-    uint8_t hash[keySize];
+    if (keySize != 32) {
+        throw std::invalid_argument("SHA-256 output size must be 32 bytes");
+    }
+    uint8_t hash[32];
     mbedtls_sha256(entropy.data(), entropy.size(), hash, 0); // 0 = SHA-256 (not SHA-224)
 
-    // Convert to std::vector<uint8_t> and return
-    return std::vector<uint8_t>(hash, hash + keySize);
+    std::vector<uint8_t> result(hash, hash + keySize);
+    volatile uint8_t* hashData = hash;
+    for (size_t index = 0; index < sizeof(hash); ++index) {
+        hashData[index] = 0;
+    }
+    return result;
 }
 
-HDPublicKey CryptoService::deriveXPub(std::string mnemonic, std::string passphrase) {
+HDPublicKey CryptoService::deriveXPub(const std::string& mnemonic,
+                                      const std::string& passphrase) {
     // Mnemonic words with passphrase
     HDPrivateKey hd(mnemonic.c_str(), passphrase.c_str());
     
@@ -304,9 +368,11 @@ HDPublicKey CryptoService::deriveXPub(std::string mnemonic, std::string passphra
     HDPrivateKey legacyAccount = hd.derive(getLegacyDerivePath().c_str());
     legacyAccount.type = P2PKH;
     HDPublicKey xpub = legacyAccount.xpub();
+    return xpub;
 }
 
-HDPublicKey CryptoService::deriveZPub(std::string mnemonic, std::string passphrase) {
+HDPublicKey CryptoService::deriveZPub(const std::string& mnemonic,
+                                      const std::string& passphrase) {
     // Mnemonic 24 words with passphrase
     HDPrivateKey hd(mnemonic.c_str(), passphrase.c_str());
     
@@ -323,7 +389,8 @@ std::string CryptoService::getLegacyDerivePath() {
     return "m/44'/0'/0";
 }
 
-std::string CryptoService::getFingerprint(std::string mnemonic, std::string passphrase) {
+std::string CryptoService::getFingerprint(const std::string& mnemonic,
+                                          const std::string& passphrase) {
     // Mnemonic with passphrase
     HDPrivateKey hd(mnemonic.c_str(), passphrase.c_str());
 
@@ -494,6 +561,7 @@ std::vector<uint8_t> CryptoService::deriveKeyFromPassphrase(const std::string& p
     mbedtls_md_free(&mdContext);
 
     if (ret != 0) {
+        secureClear(key);
         throw std::runtime_error("Failed to derive key using PBKDF2");
     }
 
@@ -633,10 +701,14 @@ std::vector<uint8_t> CryptoService::encryptPrivateKeyWithPassphrase(const std::v
     // Derive key with passphrase and salt
     auto derivedKey = deriveKeyFromPassphrase(passphrase, salt, 16);
 
-    // Encrypt
-    auto encryptedPrivateKey = encryptAES(privateKey, derivedKey);
-
-    return encryptedPrivateKey;
+    try {
+        auto encryptedPrivateKey = encryptAES(privateKey, derivedKey);
+        secureClear(derivedKey);
+        return encryptedPrivateKey;
+    } catch (...) {
+        secureClear(derivedKey);
+        throw;
+    }
 }
 
 std::vector<uint8_t> CryptoService::decryptPrivateKeyWithPassphrase(const std::vector<uint8_t>& encryptedPrivateKey, const std::string& passphrase, const std::string& salt) {
@@ -647,10 +719,14 @@ std::vector<uint8_t> CryptoService::decryptPrivateKeyWithPassphrase(const std::v
     // Derive key with passphrase and salt
     auto derivedKey = deriveKeyFromPassphrase(passphrase, salt, 16);
 
-    // Decrypt
-    auto decryptedPrivateKey = decryptAES(encryptedPrivateKey, derivedKey);
-
-    return decryptedPrivateKey;
+    try {
+        auto decryptedPrivateKey = decryptAES(encryptedPrivateKey, derivedKey);
+        secureClear(derivedKey);
+        return decryptedPrivateKey;
+    } catch (...) {
+        secureClear(derivedKey);
+        throw;
+    }
 }
 
 std::pair<std::vector<uint8_t>, std::vector<uint8_t>> CryptoService::splitVector(const std::vector<uint8_t>& input) {
@@ -678,8 +754,13 @@ std::vector<uint8_t> CryptoService::generateChecksum(const std::vector<uint8_t>&
     uint8_t hash[32]; // SHA256 produces 32 bytes
     mbedtls_sha256(combined.data(), combined.size(), hash, 0); // 0 for SHA256, not SHA224
 
-    // Return the first 16 bytes
-    return std::vector<uint8_t>(hash, hash + 16);
+    std::vector<uint8_t> checksum(hash, hash + 16);
+    secureClear(combined);
+    volatile uint8_t* hashData = hash;
+    for (size_t index = 0; index < sizeof(hash); ++index) {
+        hashData[index] = 0;
+    }
+    return checksum;
 }
 
 std::string CryptoService::signBitcoinTransactions(const std::string& psbtBase64, const std::string& mnemonic, const std::string& passphrase) {

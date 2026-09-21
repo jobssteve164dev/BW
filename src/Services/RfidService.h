@@ -11,6 +11,7 @@
 #include <iomanip>
 #include "mfrc522_i2c.h"
 #include <Contexts/GlobalContext.h>
+#include <Services/RfidBackupFormat.h>
 
 /* 
  MIFARE 1K TAG
@@ -44,8 +45,8 @@ public:
     bool verifyBlock(uint8_t blockAddr, const std::vector<uint8_t>& expectedData);
     bool savePrivateKey(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2);
     std::vector<uint8_t> getPrivateKey();
-    bool saveSalt(const std::string& salt);
-    std::string getSalt();
+    bool saveSalt(const std::vector<uint8_t>& salt);
+    std::vector<uint8_t> getSalt();
     std::vector<uint8_t> getCheckSum();
     bool saveChecksum(const std::vector<uint8_t>& signature);
     uint8_t getMetadata();

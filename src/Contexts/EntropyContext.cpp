@@ -2,6 +2,20 @@
 #include <random>
 #include <algorithm>
 #include <Arduino.h> // Include Arduino for GPIO functions
+#include "bootloader_random.h"
+
+namespace {
+
+class HardwareEntropyScope {
+public:
+    HardwareEntropyScope() { bootloader_random_enable(); }
+    ~HardwareEntropyScope() { bootloader_random_disable(); }
+
+    HardwareEntropyScope(const HardwareEntropyScope&) = delete;
+    HardwareEntropyScope& operator=(const HardwareEntropyScope&) = delete;
+};
+
+} // namespace
 
 namespace contexts {
 
@@ -20,9 +34,14 @@ void EntropyContext::collect() {
     uint8_t data_state = digitalRead(46); // Read DATA (G46)
     uint8_t clk_state = digitalRead(43); // Read CLK (G43)
 
-    // Rotate the bits of mic_gpio_state by a random number of positions
+    // Include both microphone pins, then rotate without invoking a 32-bit shift.
+    HardwareEntropyScope entropyScope;
     uint8_t random_rotation = static_cast<uint8_t>(esp_random() & 0x1F); // Random value between 0 and 31
-    mic_gpio_state = (mic_gpio_state << random_rotation) | (mic_gpio_state >> (32 - random_rotation));
+    mic_gpio_state = (static_cast<uint32_t>(data_state) << 1) | clk_state;
+    if (random_rotation != 0) {
+        mic_gpio_state = (mic_gpio_state << random_rotation) |
+                         (mic_gpio_state >> (32 - random_rotation));
+    }
 
     // Func duration delta
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
@@ -50,7 +69,8 @@ std::vector<uint8_t> EntropyContext::getAccumulatedEntropy() {
 
 std::vector<uint8_t> EntropyContext::transformBytes(const std::vector<uint8_t>& bytes) {
     std::vector<uint8_t> transformedBytes = bytes;
-    
+
+    HardwareEntropyScope entropyScope;
     // Add some randomness in case sequences are the same
     for (auto& byte : transformedBytes) {
         byte ^= static_cast<uint8_t>(esp_random() & 0xFF); // Use only the lower 8 bits

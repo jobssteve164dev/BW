@@ -111,12 +111,15 @@ bool RfidService::savePrivateKey(const std::vector<uint8_t>& data1, const std::v
     return true;
 }
 
-bool RfidService::saveSalt(const std::string& salt) {
+bool RfidService::saveSalt(const std::vector<uint8_t>& salt) {
     std::vector<uint8_t> saltData;
     if (salt.empty()) {
         saltData = std::vector<uint8_t>(16, 0); // all zeros act like 'no encryption on the seed'
     } else {
-        saltData = std::vector<uint8_t>(salt.begin(), salt.end());
+        if (salt.size() != RfidBackupFormat::SALT_SIZE) {
+            return false;
+        }
+        saltData = salt;
     }
 
     return authenticateBlock(blockSalt) && 
@@ -175,8 +178,11 @@ std::vector<uint8_t> RfidService::getPrivateKey() {
         return {};
     }
 
-    // 0x10 16 bytes, 0x20 pour 32 bytes
     uint8_t keyType = metadata[0];
+    const size_t keyLength = RfidBackupFormat::seedLength(keyType);
+    if (keyLength == 0) {
+        return {};
+    }
 
     if (!authenticateBlock(blockPrivateKey1)) {
         return {};
@@ -186,12 +192,12 @@ std::vector<uint8_t> RfidService::getPrivateKey() {
     auto part1 = readBlock(blockPrivateKey1);
 
     // 16 bytes seed
-    if (keyType == 0x10) {
+    if (keyLength == 16) {
         return part1;
     }
 
     // 32 bytes seed
-    if (keyType == 0x20) {
+    if (keyLength == 32) {
         if (!authenticateBlock(blockPrivateKey2)) {
             return {};
         }
@@ -212,20 +218,14 @@ std::vector<uint8_t> RfidService::getPrivateKey() {
     return {};
 }
 
-std::string RfidService::getSalt() {
+std::vector<uint8_t> RfidService::getSalt() {
     // Auth du bloc contenant le salt
     if (!authenticateBlock(blockSalt)) {
-        return "";
+        return {};
     }
 
     // Lecture du bloc 6
-    auto saltData = readBlock(blockSalt);
-
-    // Conversion du vecteur de bytes en string
-    std::string salt(saltData.begin(), saltData.end());
-    salt.erase(std::find(salt.begin(), salt.end(), '\0'), salt.end());
-
-    return salt;
+    return readBlock(blockSalt);
 }
 
 bool RfidService::saveChecksum(const std::vector<uint8_t>& signature) {
@@ -252,7 +252,7 @@ uint8_t RfidService::getMetadata() {
     }
 
     auto metadata = readBlock(blockMetadata);
-    return metadata[0]; // seed length
+    return metadata.empty() ? 0 : metadata[0];
 }
 
 bool RfidService::lockSectorAsReadOnly(uint8_t sector) {

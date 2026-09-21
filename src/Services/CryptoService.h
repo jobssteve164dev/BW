@@ -38,9 +38,9 @@ public:
     std::string getRandomString(size_t length);
     std::vector<uint8_t> generatePrivateKey(size_t keySize = 32);
     std::vector<std::string> privateKeyToMnemonic(const std::vector<uint8_t>& privateKey);
-    HDPublicKey deriveZPub(std::string mnemonic, std::string passphrase="");
-    HDPublicKey deriveXPub(std::string mnemonic, std::string passphrase);
-    std::string getFingerprint(std::string mnemonic, std::string passphrase);
+    HDPublicKey deriveZPub(const std::string& mnemonic, const std::string& passphrase="");
+    HDPublicKey deriveXPub(const std::string& mnemonic, const std::string& passphrase);
+    std::string getFingerprint(const std::string& mnemonic, const std::string& passphrase);
     std::string getLegacyDerivePath();
     std::string getSegwitDerivePath();
     std::string generateBitcoinLegacyAddress(HDPublicKey xpub);

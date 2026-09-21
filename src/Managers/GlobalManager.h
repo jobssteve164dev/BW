@@ -11,6 +11,9 @@
 #include <Services/UsbService.h>
 #include <Services/SettingsService.h>
 #include <Services/VaultService.h>
+#include <Services/RfidBackupFormat.h>
+#include <Services/RfidBackupCodec.h>
+#include <Services/RfidBackupWriter.h>
 #include <Models/Wallet.h>
 #include <Selections/MnemonicSelection.h>
 #include <Selections/MnemonicRestoreSelection.h>
@@ -105,14 +108,17 @@ public:
                                     const std::string& mismatchMessage,
                                     size_t minimumLength = 3);
 
-    std::tuple<std::vector<uint8_t>, std::string> manageRfidEncryption(std::vector<uint8_t> privateKey);
+    RfidEncryptedBackup manageRfidEncryption(const std::vector<uint8_t>& privateKey);
     std::vector<uint8_t> manageRfidDecryption();
 
     void manageRfidSave(std::vector<uint8_t> privateKey);
     std::vector<uint8_t> manageRfidRead();
     std::vector<uint8_t> manageBitcoinSignature(const std::string& psbt,
                                                 const std::string& mnemonic);
-    Wallet manageBitcoinWalletCreation(std::string mnemonic, std::string passphrase, std::string walletName, bool loadedConfirmation=false);
+    Wallet manageBitcoinWalletCreation(const std::string& mnemonic,
+                                       const std::string& passphrase,
+                                       const std::string& walletName,
+                                       bool loadedConfirmation=false);
 
 private:
     bool loadWalletFileWithBackup(const std::string& path, std::string& content);
