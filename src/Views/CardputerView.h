@@ -49,6 +49,12 @@ public:
     static void displayClearMainView(uint8_t offsetY=0);
     static void displayDebug(std::string message);
     static void displayQrCode(std::string address);
+    static void displayTransactionOutput(size_t index,
+                                         size_t total,
+                                         const std::string& address,
+                                         const std::string& amount);
+    static void displayTransactionFee(const std::string& amount, uint64_t satoshis);
+    static void displayAnimatedQrFrame(const std::string& frame, size_t index, size_t total);
     static void displayWalletValue(std::string description, std::string value);
     static void displayTopIcon();
     static void displayKeyboardLayout(const std::string& layoutName);

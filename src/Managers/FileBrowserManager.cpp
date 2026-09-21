@@ -97,23 +97,51 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
     auto fileExt = extractFileExtension(fileName);
 
     if (fileExt == "psbt") {
-        display.displayTopBar("正在签名", false, false, true);
+        display.displayTopBar("检查交易", false, false, true);
         display.displaySubMessage("正在加载", 83);
 
         // Read file
         auto fileContent = sdService.readBinaryFile(currentPath.c_str());
 
+        auto signingWallet = selectionContext.getCurrentSelectedWallet();
+        TransactionReview review;
+        if (!cryptoService.inspectBitcoinTransaction(
+                fileContent,
+                signingWallet.getMnemonic(),
+                signingWallet.getPassphrase(),
+                review)) {
+            display.displaySubMessage("无法安全读取交易详情", 18, 2500);
+            return false;
+        }
+        if (!confirmTransaction(review)) {
+            display.displaySubMessage("已取消签名", 60, 1500);
+            return false;
+        }
+
+        display.displayTopBar("正在签名", false, false, true);
+        display.displaySubMessage("正在处理", 83);
+
         // Convert and get signature
         auto psbt = cryptoService.convertPSBTBinaryToBase64(fileContent);
-        auto signingWallet = selectionContext.getCurrentSelectedWallet();
         auto signedTransactionBytes = manageBitcoinSignature(psbt, signingWallet.getMnemonic());
-        signingWallet.clearSecrets();
         
         // Bad sign
         if (signedTransactionBytes.empty()) {
+            signingWallet.clearSecrets();
             display.displaySubMessage("签名失败", 60, 2000);
             return false;
         }
+
+        std::vector<uint8_t> verifiedSignedTransaction;
+        const bool signedTransactionMatches = cryptoService.mergeSignedBitcoinTransaction(
+            fileContent, signedTransactionBytes, verifiedSignedTransaction);
+        clearBytes(signedTransactionBytes);
+        signingWallet.clearSecrets();
+        if (!signedTransactionMatches) {
+            display.displaySubMessage("签名结果校验失败", 38, 2500);
+            return false;
+        }
+        signedTransactionBytes.swap(verifiedSignedTransaction);
 
         // Sign success, means it's the correct seed for the correct transaction
         display.displaySubMessage("签名成功", 25, 2000);
@@ -121,10 +149,29 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
         // SD Save
         auto parent = getParentDirectory(currentPath);
         std::string baseFileName = fileName.substr(0, fileName.find_last_of('.')); // remove ext .psbt
-        sdService.writeBinaryFile((parent + "/" + baseFileName + "-signed.psbt").c_str(), signedTransactionBytes);
-        sdService.deleteFile(currentPath.c_str()); // delete unsigned file
+        const auto signedPath = parent + "/" + baseFileName + "-signed.psbt";
+        const auto temporarySignedPath = signedPath + ".tmp";
+        const auto backupSignedPath = signedPath + ".bak";
+        if (!sdService.replaceBinaryFile(
+                signedPath.c_str(),
+                temporarySignedPath.c_str(),
+                backupSignedPath.c_str(),
+                signedTransactionBytes)) {
+            clearBytes(signedTransactionBytes);
+            display.displaySubMessage("签名文件校验失败，原文件已保留", 5, 3000);
+            return false;
+        }
+        const bool unsignedRemoved = sdService.deleteFile(currentPath.c_str());
         removeCachedDirectoryElement(parent); // new sign.psbt in it, remove to refetch
-        display.displaySubMessage("签名已保存到 SD 卡", 40, 3000);
+        display.displaySubMessage(
+            unsignedRemoved ? "签名已保存到 SD 卡" : "签名已保存，原文件未删除",
+            unsignedRemoved ? 40 : 16,
+            3000);
+
+        if (confirmationSelection.select("显示签名二维码？")) {
+            displaySignedTransactionQr(signedTransactionBytes);
+        }
+        clearBytes(signedTransactionBytes);
         
         // Check if user want to sign another tx
         auto signConfirmation = confirmationSelection.select("继续签名交易？");
@@ -143,6 +190,60 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
 
     confirmationSelection.select("不支持此文件");
     return false;
+}
+
+bool FileBrowserManager::confirmTransaction(const TransactionReview& review) {
+    for (size_t index = 0; index < review.outputs.size(); ++index) {
+        const auto& output = review.outputs[index];
+        display.displayTransactionOutput(
+            index,
+            review.outputs.size(),
+            output.address,
+            TransactionReviewService::formatBitcoin(output.satoshis));
+        char key = KEY_NONE;
+        while (key != KEY_OK && key != KEY_ARROW_RIGHT) {
+            key = input.handler();
+            if (key == KEY_RETURN_CUSTOM) {
+                return false;
+            }
+        }
+    }
+
+    display.displayTransactionFee(
+        TransactionReviewService::formatBitcoin(review.feeSatoshis),
+        review.feeSatoshis);
+    char key = KEY_NONE;
+    while (key != KEY_OK && key != KEY_ARROW_RIGHT) {
+        key = input.handler();
+        if (key == KEY_RETURN_CUSTOM) {
+            return false;
+        }
+    }
+    return confirmationSelection.select("确认签名这笔交易？");
+}
+
+void FileBrowserManager::displaySignedTransactionQr(
+    const std::vector<uint8_t>& signedTransaction) {
+    std::vector<std::string> frames;
+    if (!BbqrEncoder::encodePsbt(signedTransaction, frames)) {
+        display.displaySubMessage("二维码生成失败", 46, 2000);
+        return;
+    }
+
+    size_t frameIndex = 0;
+    unsigned long lastFrameAt = 0;
+    while (true) {
+        const auto now = millis();
+        if (lastFrameAt == 0 || now - lastFrameAt >= 500) {
+            display.displayAnimatedQrFrame(frames[frameIndex], frameIndex, frames.size());
+            frameIndex = (frameIndex + 1) % frames.size();
+            lastFrameAt = now;
+        }
+        const auto key = input.handler();
+        if (key == KEY_RETURN_CUSTOM || key == KEY_OK) {
+            return;
+        }
+    }
 }
 
 bool FileBrowserManager::manageSeedLoadingFile(const std::string& currentPath) {

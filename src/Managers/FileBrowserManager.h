@@ -6,6 +6,7 @@
 #include <Services/SdService.h>
 #include <Services/WalletService.h>
 #include <Services/CryptoService.h>
+#include <Services/BbqrEncoder.h>
 #include <Selections/FilePathSelection.h>
 #include <Selections/ConfirmationSelection.h>
 #include <Selections/StringPromptSelection.h>
@@ -43,6 +44,9 @@ public:
     bool manageSeedLoadingFile(const std::string& currentPath);
     std::vector<std::string> getCachedDirectoryElements(const std::string& path);
     void removeCachedDirectoryElement(const std::string& path);
+private:
+    bool confirmTransaction(const TransactionReview& review);
+    void displaySignedTransactionQr(const std::vector<uint8_t>& signedTransaction);
 };
 
 } // namespace managers

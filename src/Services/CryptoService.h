@@ -22,6 +22,7 @@
 #include <M5Cardputer.h>
 
 #include <Contexts/EntropyContext.h>
+#include <Services/TransactionReview.h>
 
 using namespace contexts;
 
@@ -77,6 +78,13 @@ public:
     std::pair<std::vector<uint8_t>, std::vector<uint8_t>> splitVector(const std::vector<uint8_t>& input);
     std::vector<uint8_t> generateChecksum(const std::vector<uint8_t>& data, const std::string& salt);
     std::string signBitcoinTransactions(const std::string& psbtBase64, const std::string& mnemonic, const std::string& passphrase);
+    bool inspectBitcoinTransaction(const std::vector<uint8_t>& psbtBinary,
+                                   const std::string& mnemonic,
+                                   const std::string& passphrase,
+                                   TransactionReview& review);
+    bool mergeSignedBitcoinTransaction(const std::vector<uint8_t>& originalPsbt,
+                                       const std::vector<uint8_t>& signedPsbt,
+                                       std::vector<uint8_t>& verifiedPsbt);
     std::vector<uint8_t> convertPSBTBase64ToBinary(const std::string& psbtBase64);
     std::string convertPSBTBinaryToBase64(const std::vector<uint8_t>& psbtBinary);
     std::vector<uint8_t> OLDderivePublicKey(const std::vector<uint8_t>& privateKey);

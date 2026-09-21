@@ -477,6 +477,70 @@ void CardputerView::displayQrCode(std::string address) {
     M5Cardputer.Display.qrcode(address.c_str(), -1, -1, 125);
 }
 
+void CardputerView::displayTransactionOutput(size_t index,
+                                             size_t total,
+                                             const std::string& address,
+                                             const std::string& amount) {
+    Display->fillScreen(BACKGROUND_COLOR);
+    Display->setFont(&fonts::efontCN_16);
+    Display->setTextSize(TEXT_BIG);
+    Display->setTextColor(PRIMARY_COLOR);
+    Display->setCursor(6, 13);
+    Display->printf("输出 %u/%u", static_cast<unsigned>(index + 1), static_cast<unsigned>(total));
+    Display->setTextColor(TEXT_COLOR);
+    Display->setCursor(6, 34);
+    Display->printf("%s", amount.c_str());
+
+    const size_t charactersPerLine = 28;
+    for (size_t line = 0; line < 3 && line * charactersPerLine < address.size(); ++line) {
+        const auto part = address.substr(line * charactersPerLine, charactersPerLine);
+        Display->setCursor(6, 55 + line * 20);
+        Display->printf("%s", part.c_str());
+    }
+
+    Display->setTextColor(PRIMARY_COLOR);
+    Display->setCursor(6, 116);
+    Display->printf("<取消       OK下一项");
+    Display->setTextColor(TEXT_COLOR);
+}
+
+void CardputerView::displayTransactionFee(const std::string& amount, uint64_t satoshis) {
+    Display->fillScreen(BACKGROUND_COLOR);
+    Display->setFont(&fonts::efontCN_16);
+    Display->setTextSize(TEXT_BIG);
+    Display->setTextColor(PRIMARY_COLOR);
+    Display->setCursor(6, 18);
+    Display->printf("网络手续费");
+    Display->setTextColor(TEXT_COLOR);
+    Display->setCursor(6, 50);
+    Display->printf("%s", amount.c_str());
+    Display->setCursor(6, 76);
+    Display->printf("%llu sat", static_cast<unsigned long long>(satoshis));
+    Display->setTextColor(PRIMARY_COLOR);
+    Display->setCursor(6, 116);
+    Display->printf("<取消       OK下一项");
+    Display->setTextColor(TEXT_COLOR);
+}
+
+void CardputerView::displayAnimatedQrFrame(const std::string& frame, size_t index, size_t total) {
+    Display->fillScreen(BACKGROUND_COLOR);
+    M5Cardputer.Display.qrcode(frame.c_str(), 3, 5, 125);
+    Display->setFont(&fonts::efontCN_16);
+    Display->setTextSize(TEXT_BIG);
+    Display->setTextColor(PRIMARY_COLOR);
+    Display->setCursor(135, 22);
+    Display->printf("签名交易");
+    Display->setTextColor(TEXT_COLOR);
+    Display->setCursor(135, 52);
+    Display->printf("%u/%u", static_cast<unsigned>(index + 1), static_cast<unsigned>(total));
+    Display->setCursor(135, 82);
+    Display->printf("请扫描");
+    Display->setTextColor(PRIMARY_COLOR);
+    Display->setCursor(135, 110);
+    Display->printf("< 退出");
+    Display->setTextColor(TEXT_COLOR);
+}
+
 void CardputerView::setBrightness(uint16_t brightness) {
     Display->setBrightness(brightness);
 }

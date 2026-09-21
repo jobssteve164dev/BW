@@ -10,7 +10,14 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_compiled_firmware_contains_chinese_user_interface() -> None:
     firmware = FIRMWARE.read_bytes()
 
-    expected_labels = ["钱包列表", "创建钱包", "恢复助记词", "签名交易"]
+    expected_labels = [
+        "钱包列表",
+        "创建钱包",
+        "恢复助记词",
+        "签名交易",
+        "网络手续费",
+        "显示签名二维码",
+    ]
     for label in expected_labels:
         assert label.encode("utf-8") in firmware, f"固件缺少中文界面文案：{label}"
 

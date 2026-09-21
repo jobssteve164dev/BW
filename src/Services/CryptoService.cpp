@@ -5,6 +5,7 @@
 #include <cryptopp/ripemd.h>
 #include <cstring>
 #include <algorithm>
+#include <limits>
 #include "bootloader_random.h"
 #include "esp_random.h"
 #include "mbedtls/ctr_drbg.h"
@@ -12,8 +13,130 @@
 #include "mbedtls/pkcs5.h"
 #include "mbedtls/gcm.h"
 #include "cryptopp/rng.h"
+#include "SegwitAddressEncoder.h"
 
 namespace services {
+namespace {
+
+std::string outputAddress(const wally_tx_output& output) {
+    if (!output.script || output.script_len < 4) {
+        return "";
+    }
+
+    uint8_t witnessVersion = 0xff;
+    if (output.script[0] == 0x00) {
+        witnessVersion = 0;
+    } else if (output.script[0] >= 0x51 && output.script[0] <= 0x60) {
+        witnessVersion = output.script[0] - 0x50;
+    }
+    if (witnessVersion <= 16 && output.script[1] == output.script_len - 2) {
+        const std::vector<uint8_t> program(output.script + 2, output.script + output.script_len);
+        return SegwitAddressEncoder::encode("bc", witnessVersion, program);
+    }
+
+    char* address = nullptr;
+    const int result = wally_scriptpubkey_to_address(
+        output.script,
+        output.script_len,
+        WALLY_NETWORK_BITCOIN_MAINNET,
+        &address);
+    if (result != WALLY_OK || !address) {
+        return "";
+    }
+    std::string value(address);
+    wally_free_string(address);
+    return value;
+}
+
+bool addAmount(uint64_t amount, uint64_t& total) {
+    if (amount > std::numeric_limits<uint64_t>::max() - total) {
+        return false;
+    }
+    total += amount;
+    return true;
+}
+
+std::vector<uint8_t> outputScript(const wally_tx_output& output) {
+    if (!output.script || output.script_len == 0) {
+        return {};
+    }
+    return std::vector<uint8_t>(output.script, output.script + output.script_len);
+}
+
+bool transactionIdMatches(const wally_tx& transaction,
+                          const unsigned char expected[WALLY_TXHASH_LEN]) {
+    size_t length = 0;
+    if (wally_tx_get_length(&transaction, 0, &length) != WALLY_OK || length == 0) {
+        return false;
+    }
+
+    std::vector<uint8_t> serialized(length);
+    size_t written = 0;
+    if (wally_tx_to_bytes(&transaction, 0, serialized.data(), serialized.size(), &written) != WALLY_OK ||
+        written != serialized.size()) {
+        return false;
+    }
+
+    unsigned char firstHash[32];
+    unsigned char transactionId[32];
+    mbedtls_sha256(serialized.data(), serialized.size(), firstHash, 0);
+    mbedtls_sha256(firstHash, sizeof(firstHash), transactionId, 0);
+    return std::memcmp(transactionId, expected, WALLY_TXHASH_LEN) == 0;
+}
+
+bool serializeUnsignedTransaction(const wally_tx& transaction,
+                                  std::vector<uint8_t>& serialized) {
+    size_t length = 0;
+    if (wally_tx_get_length(&transaction, 0, &length) != WALLY_OK || length == 0) {
+        return false;
+    }
+    serialized.assign(length, 0);
+    size_t written = 0;
+    return wally_tx_to_bytes(
+               &transaction,
+               0,
+               serialized.data(),
+               serialized.size(),
+               &written) == WALLY_OK && written == serialized.size();
+}
+
+bool samePartialSignature(const wally_partial_sigs_item& left,
+                          const wally_partial_sigs_item& right) {
+    return std::memcmp(left.pubkey, right.pubkey, sizeof(left.pubkey)) == 0 &&
+           left.sig_len == right.sig_len &&
+           left.sig && right.sig &&
+           std::memcmp(left.sig, right.sig, left.sig_len) == 0;
+}
+
+bool originalSignatureIsPreserved(const wally_partial_sigs_item& original,
+                                  const wally_partial_sigs_map& signedSignatures) {
+    for (size_t index = 0; index < signedSignatures.num_items; ++index) {
+        if (samePartialSignature(original, signedSignatures.items[index])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool newSignatureMatchesKeypath(const wally_partial_sigs_item& signature,
+                                const wally_psbt_input& originalInput) {
+    if (!signature.sig || signature.sig_len < 2 ||
+        signature.sig[signature.sig_len - 1] != WALLY_SIGHASH_ALL ||
+        !originalInput.keypaths) {
+        return false;
+    }
+    for (size_t index = 0; index < originalInput.keypaths->num_items; ++index) {
+        if (std::memcmp(
+                signature.pubkey,
+                originalInput.keypaths->items[index].pubkey,
+                sizeof(signature.pubkey)) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
 
 CryptoService::CryptoService() {}
 
@@ -567,15 +690,253 @@ std::string CryptoService::signBitcoinTransactions(const std::string& psbtBase64
     PSBT psbt;
     size_t bytesParsed = psbt.parseBase64(psbtBase64.c_str());
 
+    std::vector<uint8_t> signaturesBefore(psbt.tx.inputsNumber);
+    for (size_t index = 0; index < psbt.tx.inputsNumber; ++index) {
+        signaturesBefore[index] = psbt.txInsMeta[index].signaturesLen;
+    }
+
     // Signer les transactions
     uint8_t signedInputs = psbt.sign(rootKey);
-    if (signedInputs == 0) {
+    if (signedInputs != psbt.tx.inputsNumber) {
         return ""; // can't sign
+    }
+    for (size_t index = 0; index < psbt.tx.inputsNumber; ++index) {
+        if (psbt.txInsMeta[index].signaturesLen <= signaturesBefore[index]) {
+            return "";
+        }
     }
 
     // Export the signed PSBT as Base64
     std::string signedPsbtBase64 = psbt.toBase64().c_str();
     return signedPsbtBase64;
+}
+
+bool CryptoService::inspectBitcoinTransaction(const std::vector<uint8_t>& psbtBinary,
+                                              const std::string& mnemonic,
+                                              const std::string& passphrase,
+                                              TransactionReview& review) {
+    review.outputs.clear();
+    review.feeSatoshis = 0;
+    if (psbtBinary.empty()) {
+        return false;
+    }
+
+    wally_psbt* psbt = nullptr;
+    if (wally_psbt_from_bytes(psbtBinary.data(), psbtBinary.size(), &psbt) != WALLY_OK ||
+        !psbt || !psbt->tx || psbt->num_inputs != psbt->tx->num_inputs ||
+        psbt->num_outputs != psbt->tx->num_outputs) {
+        if (psbt) {
+            wally_psbt_free(psbt);
+        }
+        return false;
+    }
+
+    const auto base64 = convertPSBTBinaryToBase64(psbtBinary);
+    PSBT ownershipPsbt;
+    if (base64.empty() || ownershipPsbt.parseBase64(base64.c_str()) == 0 || !ownershipPsbt ||
+        ownershipPsbt.tx.inputsNumber != psbt->num_inputs) {
+        wally_psbt_free(psbt);
+        return false;
+    }
+    HDPrivateKey rootKey(mnemonic.c_str(), passphrase.c_str());
+    uint8_t rootFingerprint[4];
+    rootKey.fingerprint(rootFingerprint);
+
+    uint64_t inputSatoshis = 0;
+    for (size_t index = 0; index < psbt->num_inputs; ++index) {
+        const auto& input = psbt->inputs[index];
+        if (!TransactionReviewService::isSupportedSighash(input.sighash_type)) {
+            wally_psbt_free(psbt);
+            return false;
+        }
+        if (input.redeem_script_len != 0 || input.witness_script_len != 0) {
+            wally_psbt_free(psbt);
+            return false;
+        }
+
+        bool ownedByWallet = false;
+        const auto& ownershipInput = ownershipPsbt.txInsMeta[index];
+        if (ownershipInput.derivationsLen != 1 || !input.keypaths ||
+            input.keypaths->num_items != 1) {
+            wally_psbt_free(psbt);
+            return false;
+        }
+        for (size_t derivationIndex = 0;
+             derivationIndex < ownershipInput.derivationsLen;
+             ++derivationIndex) {
+            const auto& derivation = ownershipInput.derivations[derivationIndex];
+            if (!derivation.derivation || derivation.derivationLen != 5) {
+                continue;
+            }
+            const std::vector<uint32_t> path(
+                derivation.derivation,
+                derivation.derivation + derivation.derivationLen);
+            if (std::memcmp(rootFingerprint, derivation.fingerprint, sizeof(rootFingerprint)) == 0 &&
+                TransactionReviewService::isSupportedBip84Path(path)) {
+                const auto privateKey = rootKey.derive(
+                    derivation.derivation,
+                    derivation.derivationLen);
+                if (derivation.pubkey == privateKey.publicKey() &&
+                    privateKey.publicKey().script(P2WPKH) == ownershipInput.txOut.scriptPubkey) {
+                    ownedByWallet = true;
+                    break;
+                }
+            }
+        }
+        if (!ownedByWallet) {
+            wally_psbt_free(psbt);
+            return false;
+        }
+
+        TransactionInputEvidence evidence;
+        if (input.witness_utxo) {
+            evidence.hasWitnessUtxo = true;
+            evidence.witnessSatoshis = input.witness_utxo->satoshi;
+            evidence.witnessScript = outputScript(*input.witness_utxo);
+        }
+        if (input.non_witness_utxo) {
+            evidence.hasNonWitnessUtxo = true;
+            evidence.nonWitnessTxidMatches = transactionIdMatches(
+                *input.non_witness_utxo,
+                psbt->tx->inputs[index].txhash);
+            const auto previousOutput = psbt->tx->inputs[index].index;
+            if (previousOutput >= input.non_witness_utxo->num_outputs) {
+                wally_psbt_free(psbt);
+                return false;
+            }
+            const auto& previous = input.non_witness_utxo->outputs[previousOutput];
+            evidence.nonWitnessSatoshis = previous.satoshi;
+            evidence.nonWitnessScript = outputScript(previous);
+        }
+
+        uint64_t amount = 0;
+        if (!TransactionReviewService::selectVerifiedInputAmount(evidence, amount)) {
+            wally_psbt_free(psbt);
+            return false;
+        }
+        if (!addAmount(amount, inputSatoshis)) {
+            wally_psbt_free(psbt);
+            return false;
+        }
+    }
+
+    std::vector<TransactionOutputReview> outputs;
+    outputs.reserve(psbt->num_outputs);
+    for (size_t index = 0; index < psbt->num_outputs; ++index) {
+        const auto address = outputAddress(psbt->tx->outputs[index]);
+        if (address.empty()) {
+            wally_psbt_free(psbt);
+            return false;
+        }
+        outputs.push_back({
+            psbt->tx->outputs[index].satoshi,
+            address,
+        });
+    }
+
+    wally_psbt_free(psbt);
+    return TransactionReviewService::build(inputSatoshis, outputs, review);
+}
+
+bool CryptoService::mergeSignedBitcoinTransaction(
+    const std::vector<uint8_t>& originalPsbt,
+    const std::vector<uint8_t>& signedPsbt,
+    std::vector<uint8_t>& verifiedPsbt) {
+    verifiedPsbt.clear();
+    if (originalPsbt.empty() || signedPsbt.empty()) {
+        return false;
+    }
+
+    wally_psbt* original = nullptr;
+    wally_psbt* signedTransaction = nullptr;
+    const bool parsed =
+        wally_psbt_from_bytes(originalPsbt.data(), originalPsbt.size(), &original) == WALLY_OK &&
+        original && original->tx && original->num_inputs == original->tx->num_inputs &&
+        wally_psbt_from_bytes(signedPsbt.data(), signedPsbt.size(), &signedTransaction) == WALLY_OK &&
+        signedTransaction && signedTransaction->tx &&
+        signedTransaction->num_inputs == signedTransaction->tx->num_inputs &&
+        original->num_inputs == signedTransaction->num_inputs;
+    if (!parsed) {
+        if (original) {
+            wally_psbt_free(original);
+        }
+        if (signedTransaction) {
+            wally_psbt_free(signedTransaction);
+        }
+        return false;
+    }
+
+    std::vector<uint8_t> originalTransaction;
+    std::vector<uint8_t> signedUnsignedTransaction;
+    bool valid = serializeUnsignedTransaction(*original->tx, originalTransaction) &&
+                 serializeUnsignedTransaction(*signedTransaction->tx, signedUnsignedTransaction) &&
+                 originalTransaction == signedUnsignedTransaction;
+    for (size_t index = 0; valid && index < original->num_inputs; ++index) {
+        const auto* originalSignatures = original->inputs[index].partial_sigs;
+        const auto* signedSignatures = signedTransaction->inputs[index].partial_sigs;
+        const size_t originalCount = originalSignatures ? originalSignatures->num_items : 0;
+        if (!signedSignatures || signedSignatures->num_items != originalCount + 1) {
+            valid = false;
+            break;
+        }
+        for (size_t originalIndex = 0;
+             valid && originalIndex < originalCount;
+             ++originalIndex) {
+            valid = originalSignatureIsPreserved(
+                originalSignatures->items[originalIndex],
+                *signedSignatures);
+        }
+
+        bool foundNewSignature = false;
+        for (size_t signedIndex = 0;
+             valid && signedIndex < signedSignatures->num_items;
+             ++signedIndex) {
+            bool existedBefore = false;
+            for (size_t originalIndex = 0; originalIndex < originalCount; ++originalIndex) {
+                if (samePartialSignature(
+                        signedSignatures->items[signedIndex],
+                        originalSignatures->items[originalIndex])) {
+                    existedBefore = true;
+                    break;
+                }
+            }
+            if (!existedBefore) {
+                valid = !foundNewSignature && newSignatureMatchesKeypath(
+                    signedSignatures->items[signedIndex],
+                    original->inputs[index]);
+                foundNewSignature = valid;
+            }
+        }
+        valid = valid && foundNewSignature;
+    }
+
+    for (size_t index = 0; valid && index < original->num_inputs; ++index) {
+        valid = signedTransaction->inputs[index].partial_sigs &&
+                wally_psbt_input_set_partial_sigs(
+                    &original->inputs[index],
+                    signedTransaction->inputs[index].partial_sigs) == WALLY_OK;
+    }
+    size_t serializedLength = 0;
+    if (valid) {
+        valid = wally_psbt_get_length(original, &serializedLength) == WALLY_OK &&
+                serializedLength > 0;
+    }
+    if (valid) {
+        verifiedPsbt.assign(serializedLength, 0);
+        size_t written = 0;
+        valid = wally_psbt_to_bytes(
+                    original,
+                    verifiedPsbt.data(),
+                    verifiedPsbt.size(),
+                    &written) == WALLY_OK && written == verifiedPsbt.size();
+    }
+
+    wally_psbt_free(original);
+    wally_psbt_free(signedTransaction);
+    if (!valid) {
+        verifiedPsbt.clear();
+    }
+    return valid;
 }
 
 std::string CryptoService::convertPSBTBinaryToBase64(const std::vector<uint8_t>& psbtBinary) {
