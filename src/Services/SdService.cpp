@@ -1,4 +1,6 @@
 #include "SdService.h"
+#include <algorithm>
+#include <cctype>
 
 namespace services {
 
@@ -43,7 +45,46 @@ bool SdService::getSdState() {
     return sdCardMounted;
 }
 
-std::vector<std::string> SdService::listElements(std::string dirPath, size_t limit) {
+bool SdService::ensureDirectory(const std::string& directoryPath) {
+    if (!sdCardMounted || directoryPath.empty() || directoryPath[0] != '/') {
+        return false;
+    }
+
+    std::string currentPath;
+    size_t segmentStart = 1;
+    while (segmentStart < directoryPath.size()) {
+        const size_t separator = directoryPath.find('/', segmentStart);
+        const size_t segmentEnd = separator == std::string::npos
+            ? directoryPath.size()
+            : separator;
+        if (segmentEnd == segmentStart) {
+            return false;
+        }
+        currentPath += "/" + directoryPath.substr(segmentStart, segmentEnd - segmentStart);
+
+        if (!SD.exists(currentPath.c_str()) && !SD.mkdir(currentPath.c_str())) {
+            return false;
+        }
+        File directory = SD.open(currentPath.c_str());
+        const bool isDirectory = directory && directory.isDirectory();
+        if (directory) {
+            directory.close();
+        }
+        if (!isDirectory) {
+            return false;
+        }
+
+        if (separator == std::string::npos) {
+            break;
+        }
+        segmentStart = separator + 1;
+    }
+    return !currentPath.empty();
+}
+
+std::vector<std::string> SdService::listElements(std::string dirPath,
+                                                 size_t limit,
+                                                 const std::string& fileExtension) {
 
     if (limit == 0) {
         limit = globalContext.getFileCountLimit(); 
@@ -72,19 +113,30 @@ std::vector<std::string> SdService::listElements(std::string dirPath, size_t lim
         return filesList;
     }
 
-    size_t i = 0;
-    while (file && i < limit) {
+    while (file && foldersList.size() + filesList.size() < limit) {
         const char* name = file.name();
         // Avoid hidden elements
         if (name && name[0] != '\0' && name[0] != '.') {
             if (file.isDirectory()) {
                 foldersList.push_back(name);
-            } else {
+            } else if (fileExtension.empty()) {
                 filesList.push_back(name);
+            } else {
+                std::string extension;
+                const std::string fileName(name);
+                const size_t lastDot = fileName.find_last_of('.');
+                if (lastDot != std::string::npos) {
+                    extension = fileName.substr(lastDot + 1);
+                    std::transform(extension.begin(), extension.end(), extension.begin(),
+                                   [](unsigned char value) {
+                                       return static_cast<char>(std::tolower(value));
+                                   });
+                }
+                if (extension == fileExtension) {
+                    filesList.push_back(name);
+                }
             }
         }
-        ++i;
-
         file = dir.openNextFile();
     }
 

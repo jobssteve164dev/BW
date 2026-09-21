@@ -25,7 +25,10 @@ public:
     bool isFile(std::string filePath);
     bool getSdState();
 
-    std::vector<std::string> listElements(std::string dirPath, size_t limit=0);
+    bool ensureDirectory(const std::string& directoryPath);
+    std::vector<std::string> listElements(std::string dirPath,
+                                          size_t limit=0,
+                                          const std::string& fileExtension="");
     std::string readFile(const char* filePath, size_t maximumSize = MAX_TEXT_FILE_SIZE);
     bool writeFile(const char* filePath, const std::string& data);
     bool writeBinaryFile(const char* filePath, const std::vector<uint8_t>& data);

@@ -8,6 +8,7 @@
 #include "Services/SegwitAddressEncoder.h"
 #include "Services/TransactionSigningFlow.h"
 #include "Services/TransactionReview.h"
+#include "Services/WalletFileScope.h"
 
 using services::BbqrEncoder;
 using services::SegwitAddressEncoder;
@@ -16,6 +17,7 @@ using services::TransactionReview;
 using services::TransactionReviewService;
 using services::TransactionSigningFlow;
 using services::TransactionSigningStage;
+using services::WalletFileScope;
 
 namespace {
 
@@ -63,6 +65,20 @@ void testSigningRestartForgetsThePreviousPsbt() {
     flow.begin();
     assert(flow.stage() == TransactionSigningStage::SELECT_PSBT);
     assert(flow.selectedPsbtPath().empty());
+}
+
+void testEachWalletHasAnIsolatedTransactionDirectory() {
+    assert(WalletFileScope::directory("a1b2c3d4") == "/BW/wallets/A1B2C3D4");
+    assert(WalletFileScope::directory("../escape").empty());
+    assert(WalletFileScope::directory("abc123") == "/BW/wallets/00ABC123");
+    assert(WalletFileScope::contains(
+        "/BW/wallets/A1B2C3D4", "/BW/wallets/A1B2C3D4/payment.psbt"));
+    assert(WalletFileScope::contains(
+        "/BW/wallets/A1B2C3D4", "/BW/wallets/A1B2C3D4/inbox/payment.psbt"));
+    assert(!WalletFileScope::contains(
+        "/BW/wallets/A1B2C3D4", "/BW/wallets/DEADBEEF/payment.psbt"));
+    assert(!WalletFileScope::contains(
+        "/BW/wallets/A1B2C3D4", "/BW/wallets/A1B2C3D40/payment.psbt"));
 }
 
 void testReviewComputesFeeFromEveryInputAndOutput() {
@@ -244,6 +260,7 @@ int main() {
     testSigningDoesNotAskForSecretsAlreadyLoaded();
     testSigningCancellationClearsTheSelectedTransaction();
     testSigningRestartForgetsThePreviousPsbt();
+    testEachWalletHasAnIsolatedTransactionDirectory();
     testReviewComputesFeeFromEveryInputAndOutput();
     testReviewRejectsMissingOutputsAndImpossibleFee();
     testReviewOnlyAcceptsSignaturesThatCommitToTheWholeTransaction();

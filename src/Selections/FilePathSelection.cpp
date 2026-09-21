@@ -33,10 +33,16 @@ std::string FilePathSelection::select(const std::vector<std::string>& elementNam
                 break; // to avoid check other cases
 
             case KEY_OK:
+            case KEY_ARROW_RIGHT:
+                if (filteredNames.empty()) {
+                    key = KEY_NONE;
+                }
                 break; // to avoid check other cases
 
             case KEY_ARROW_DOWN:
-                if (selectionIndex < filteredNames.size() - 1) {
+                if (filteredNames.empty()) {
+                    selectionIndex = 0;
+                } else if (selectionIndex < filteredNames.size() - 1) {
                     selectionIndex++;
                 } else {
                     selectionIndex = 0;
@@ -44,7 +50,9 @@ std::string FilePathSelection::select(const std::vector<std::string>& elementNam
                 break;
 
             case KEY_ARROW_UP:
-                if (selectionIndex > 0) {
+                if (filteredNames.empty()) {
+                    selectionIndex = 0;
+                } else if (selectionIndex > 0) {
                     selectionIndex--;
                 } else {
                     selectionIndex = filteredNames.size() - 1;

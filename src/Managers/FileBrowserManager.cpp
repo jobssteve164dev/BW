@@ -1,4 +1,6 @@
 #include "FileBrowserManager.h"
+#include <algorithm>
+#include <cctype>
 
 namespace managers {
 namespace {
@@ -438,7 +440,15 @@ std::string FileBrowserManager::extractFilename(const std::string& filepath) {
 
 std::string FileBrowserManager::extractFileExtension(const std::string& filename) {
     size_t lastDot = filename.find_last_of('.');
-    return (lastDot == std::string::npos) ? "" : filename.substr(lastDot + 1);
+    if (lastDot == std::string::npos) {
+        return "";
+    }
+    auto extension = filename.substr(lastDot + 1);
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char value) {
+                       return static_cast<char>(std::tolower(value));
+                   });
+    return extension;
 }
 
 std::string FileBrowserManager::getParentDirectory(const std::string& filePath) {

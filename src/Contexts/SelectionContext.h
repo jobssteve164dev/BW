@@ -52,7 +52,7 @@ private:
     bool isWalletSelected = false;
     SelectionModeEnum currentSelectedMode;
     Wallet currentSelectedWallet;
-    size_t currentFileIndex;
+    size_t currentFileIndex = 0;
     std::string currentFilePath;
     FileTypeEnum currentSelectedFileType = FileTypeEnum::WALLET;
     bool transactionOngoing = false;

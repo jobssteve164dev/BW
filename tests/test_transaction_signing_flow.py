@@ -79,3 +79,20 @@ def test_ending_signing_resets_secrets_flow_and_file_mode_together() -> None:
     sd_failure = browser.index("if (!manager.sdService.getSdState())")
     sd_failure_return = browser.index("return;", sd_failure)
     assert 'currentPath = "/";' in browser[sd_failure:sd_failure_return]
+
+
+def test_transaction_browser_is_scoped_to_the_selected_wallet() -> None:
+    browser = (ROOT / "src/Controllers/FileBrowserController.cpp").read_text()
+    assert "WalletFileScope::directory(" in browser
+    assert 'listElements(currentPath, 0, "psbt")' in browser
+    assert "WalletFileScope::contains(transactionRoot, currentPath)" in browser
+    assert "currentPath = transactionRoot" in browser
+    assert "已选 PSBT 不再可用" in browser
+    resume_check = browser.index("已选 PSBT 不再可用")
+    assert "manager.sdService.isFile(currentPath)" in browser[:resume_check]
+
+    selection = (ROOT / "src/Selections/FilePathSelection.cpp").read_text()
+    assert "if (filteredNames.empty())" in selection
+
+    manager = (ROOT / "src/Managers/FileBrowserManager.cpp").read_text()
+    assert "std::tolower(value)" in manager
