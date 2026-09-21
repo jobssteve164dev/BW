@@ -101,7 +101,8 @@ def test_wallet_value_preview_stays_above_the_action_buttons() -> None:
     assert preview_y + 29 < action_y
     assert "textWidth(text.c_str()) <= maxWidth" in fit_function
     assert "textWidth((fitted + \"...\").c_str()) > maxWidth" in fit_function
-    assert "fitted.pop_back()" in fit_function
+    assert "fitted.erase(characterStart)" in fit_function
+    assert "static_cast<unsigned char>(fitted[characterStart])" in fit_function
     assert "setTextWrap(false)" in view
     assert "setTextWrap(true)" in view
     assert "auto limit = 110" not in view

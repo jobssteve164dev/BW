@@ -23,7 +23,8 @@ void setup() {
         display.displayTopBar("安全启动失败");
         display.displaySubMessage("无线模块未关闭", 58);
         while (true) {
-            delay(1000);
+            input.pollStandby();
+            delay(10);
         }
     }
 

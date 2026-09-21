@@ -5,6 +5,7 @@
 #include <string>
 #include <cstring>
 #include <M5Cardputer.h>
+#include <Services/BatteryStatus.h>
 
 // SIZING
 #define DEFAULT_MARGIN 5
@@ -79,6 +80,7 @@ private:
     static void drawSearchIcon(int x, int y, int size, uint16_t color);
     static void drawRect(bool selected, uint8_t margin, uint16_t startY, uint16_t sizeX, uint16_t sizeY, uint16_t stepY);
     static void clearTopBar();
+    static void drawBatteryStatus();
     static std::string toUpperCase(const std::string& text);
     static float getTextCenterOffset(const std::string& text, int16_t width, float sizeText);
     static std::string fitTextToWidth(const std::string& text, int16_t maxWidth);

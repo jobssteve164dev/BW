@@ -3,10 +3,33 @@
 namespace inputs {
 
 
-char CardputerInput::handler() {
-
+bool CardputerInput::updateDisplayStandby() {
     // Update keyboard state
     M5Cardputer.update();
+
+    const bool inputActive = M5Cardputer.BtnA.isPressed() ||
+                             M5Cardputer.Keyboard.isPressed();
+    const auto displayAction = idleDisplayPolicy.poll(millis(), inputActive);
+    if (displayAction == services::IdleDisplayAction::TURN_OFF) {
+        const auto currentBrightness = M5Cardputer.Display.getBrightness();
+        awakeBrightness = currentBrightness == 0 ? 120 : currentBrightness;
+        M5Cardputer.Display.setBrightness(0);
+        return true;
+    }
+    if (displayAction == services::IdleDisplayAction::TURN_ON) {
+        M5Cardputer.Display.setBrightness(awakeBrightness);
+        return true;
+    }
+    if (displayAction == services::IdleDisplayAction::CONSUME_INPUT) {
+        return true;
+    }
+    return false;
+}
+
+char CardputerInput::handler() {
+    if (updateDisplayStandby()) {
+        return KEY_NONE;
+    }
 
     // Bouton GO
     if (M5Cardputer.BtnA.isPressed()) {
@@ -45,18 +68,23 @@ char CardputerInput::handler() {
     return KEY_NONE;
 }
 
+void CardputerInput::pollStandby() {
+    updateDisplayStandby();
+}
+
 void CardputerInput::waitPress() {
   while(1){
-    M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isChange()) {
-      if (M5Cardputer.Keyboard.isPressed()) {
-            Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
-            entropyContext.tick();
-            for (auto c : status.word) {
-                if (isalnum(c)) {entropyContext.add(c);} // get some entropy
-            }
+    if (updateDisplayStandby()) {
+      delay(5);
+      continue;
+    }
+    if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
+        Keyboard_Class::KeysState status = M5Cardputer.Keyboard.keysState();
+        entropyContext.tick();
+        for (auto c : status.word) {
+            if (isalnum(c)) {entropyContext.add(c);} // get some entropy
+        }
         return;
-      }
     }
     delay(5);
   }

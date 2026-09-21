@@ -4,6 +4,7 @@
 #include <map> 
 #include <M5Cardputer.h>
 #include <Contexts/EntropyContext.h>
+#include <Services/IdleDisplayPolicy.h>
 
 #define KEY_OK '\n'
 #define KEY_DEL '\b'
@@ -19,13 +20,18 @@ using namespace contexts;
 
 namespace inputs {
 
+constexpr uint32_t DISPLAY_STANDBY_TIMEOUT_MS = 120000;
 
 class CardputerInput {
 public:
     char handler();
     void waitPress();
+    void pollStandby();
 private:
+    bool updateDisplayStandby();
     EntropyContext& entropyContext = EntropyContext::getInstance();
+    services::IdleDisplayPolicy idleDisplayPolicy {DISPLAY_STANDBY_TIMEOUT_MS};
+    uint8_t awakeBrightness = 120;
 };
 
 }

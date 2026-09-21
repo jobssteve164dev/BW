@@ -17,45 +17,43 @@ void CardputerView::initialize() {
 void CardputerView::displayTopBar(const std::string& title, bool submenu, bool searchBar, bool bitcoinIcon, size_t correctionOffset) {
     uint8_t marginX = 4;
     uint8_t marginY = 14;
-    float offsetX; // for text align
-    size_t limiter; // char limitation
-    float sizeText; // pixels offset depending on text size
 
     clearTopBar();
 
     if (submenu) {
         drawSubMenuReturn(marginX+3, marginY); // for return <
-        limiter = 20; // limit string size
-        sizeText = 5.1; // pixels offset for each char
     } else {
         Display->setTextSize(TEXT_LARGE);
-        limiter = 16;
-        sizeText = 6.95;
     }
 
-    // To center text
-    offsetX = getTextCenterOffset(title, Display->width(), sizeText) - correctionOffset;
+    const int batteryLeft = Display->width() - 61;
+    const int contentLeft = submenu ? 28 : 4;
+    const int contentRight = searchBar ? batteryLeft - 22 : batteryLeft - 4;
+    const int availableWidth = contentRight - contentLeft;
+    const std::string requestedTitle = searchBar && title.empty() ? "输入关键词搜索" : title;
+    const std::string visibleTitle = fitTextToWidth(requestedTitle, availableWidth);
+    const float offsetX = contentLeft +
+                          (availableWidth - Display->textWidth(visibleTitle.c_str())) / 2.0f -
+                          correctionOffset;
     
     if (searchBar) {
         Display->setTextColor(TEXT_COLOR);
-
-        // Empty search query
-        const std::string searchQuery = title.empty() ? "输入关键词搜索" : title.substr(0, limiter);
-        drawSearchIcon(Display->width() - 20, marginY-2, 10, PRIMARY_COLOR);
+        drawSearchIcon(batteryLeft - 17, marginY-2, 10, PRIMARY_COLOR);
 
         Display->setCursor(offsetX, marginY);
-        Display->printf("%s", searchQuery.c_str());
+        Display->printf("%s", visibleTitle.c_str());
     } else {
         Display->setTextColor(TEXT_COLOR);
 
-        Display->setCursor(offsetX+8, marginY);
+        Display->setCursor(offsetX, marginY);
         Display->setTextSize(TEXT_BIG);
-        Display->printf("%s", title.c_str());
+        Display->printf("%s", visibleTitle.c_str());
     }
 
     if (bitcoinIcon) {
         drawBitcoinIcon(offsetX-22, 3);
     }
+    drawBatteryStatus();
 }
 
 
@@ -162,6 +160,7 @@ void CardputerView::displayWalletFileInfo(std::string defaultFileName) {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(80, 115);
     Display->printf("按 OK 继续");
+    drawBatteryStatus();
 }
 
 void CardputerView::displayStringPrompt(std::string stringDescription,
@@ -348,6 +347,30 @@ void CardputerView::clearTopBar() {
     Display->fillRect(0, 0, Display->width(), TOP_BAR_HEIGHT, BACKGROUND_COLOR);
 }
 
+void CardputerView::drawBatteryStatus() {
+    const int rawLevel = M5Cardputer.Power.getBatteryLevel();
+    const int level = services::BatteryStatus::percent(rawLevel);
+    const int x = Display->width() - 59;
+    const int y = 8;
+    const int bodyWidth = 16;
+    const int bodyHeight = 9;
+
+    Display->fillRect(x - 2, 0, 61, TOP_BAR_HEIGHT - 5, BACKGROUND_COLOR);
+    Display->drawRect(x, y, bodyWidth, bodyHeight, PRIMARY_COLOR);
+    Display->fillRect(x + bodyWidth, y + 2, 2, bodyHeight - 4, PRIMARY_COLOR);
+    const int fillWidth = services::BatteryStatus::fillWidth(level, bodyWidth - 4);
+    if (fillWidth > 0) {
+        Display->fillRect(x + 2, y + 2, fillWidth, bodyHeight - 4, TEXT_COLOR);
+    }
+
+    const auto label = services::BatteryStatus::label(level);
+    Display->setFont(&fonts::efontCN_16);
+    Display->setTextSize(TEXT_BIG);
+    Display->setTextColor(TEXT_COLOR);
+    Display->setTextDatum(middle_center);
+    Display->drawString(label.c_str(), x + 39, 15);
+}
+
 void CardputerView::drawBitcoinIcon(int x, int y) {
     int radius = 22 / 2;
 
@@ -372,6 +395,7 @@ void CardputerView::displayDebug(std::string message) {
     Display->printf("调试信息");
     Display->setCursor(10, 50);
     Display->printf("%s", message.c_str());
+    drawBatteryStatus();
     delay(3000);
 }
 
@@ -383,7 +407,14 @@ float CardputerView::getTextCenterOffset(const std::string& text, int16_t width,
 std::string CardputerView::fitTextToWidth(const std::string& text, int16_t maxWidth) {
     if (Display->textWidth(text.c_str()) <= maxWidth) return text;
     std::string fitted = text;
-    while (!fitted.empty() && Display->textWidth((fitted + "...").c_str()) > maxWidth) fitted.pop_back();
+    while (!fitted.empty() && Display->textWidth((fitted + "...").c_str()) > maxWidth) {
+        size_t characterStart = fitted.size() - 1;
+        while (characterStart > 0 &&
+               (static_cast<unsigned char>(fitted[characterStart]) & 0xC0) == 0x80) {
+            --characterStart;
+        }
+        fitted.erase(characterStart);
+    }
     return fitted + "...";
 }
 
@@ -475,6 +506,7 @@ void CardputerView::displayPlugUsbMention() {
 void CardputerView::displayQrCode(std::string address) {
     Display->fillScreen(BACKGROUND_COLOR);
     M5Cardputer.Display.qrcode(address.c_str(), -1, -1, 125);
+    drawBatteryStatus();
 }
 
 void CardputerView::displayTransactionOutput(size_t index,
@@ -502,6 +534,7 @@ void CardputerView::displayTransactionOutput(size_t index,
     Display->setCursor(6, 116);
     Display->printf("<取消       OK下一项");
     Display->setTextColor(TEXT_COLOR);
+    drawBatteryStatus();
 }
 
 void CardputerView::displayTransactionFee(const std::string& amount, uint64_t satoshis) {
@@ -520,6 +553,7 @@ void CardputerView::displayTransactionFee(const std::string& amount, uint64_t sa
     Display->setCursor(6, 116);
     Display->printf("<取消       OK下一项");
     Display->setTextColor(TEXT_COLOR);
+    drawBatteryStatus();
 }
 
 void CardputerView::displayAnimatedQrFrame(const std::string& frame, size_t index, size_t total) {
@@ -539,6 +573,7 @@ void CardputerView::displayAnimatedQrFrame(const std::string& frame, size_t inde
     Display->setCursor(135, 110);
     Display->printf("< 退出");
     Display->setTextColor(TEXT_COLOR);
+    drawBatteryStatus();
 }
 
 void CardputerView::setBrightness(uint16_t brightness) {
@@ -552,8 +587,9 @@ std::string CardputerView::toUpperCase(const std::string& text) {
 }
 
 void CardputerView::displayTopIcon() {
-    drawBitcoinIcon(207, 7);
+    drawBitcoinIcon(147, 7);
     drawSubMenuReturn(10, 15);
+    drawBatteryStatus();
 }
 
 void CardputerView::displaySeedStart(){
@@ -588,6 +624,7 @@ void CardputerView::displaySeedStart(){
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(80, 115);
     Display->printf("按 OK 开始");
+    drawBatteryStatus();
 }
 
 void CardputerView::displaySeedRfid(){
@@ -622,6 +659,7 @@ void CardputerView::displaySeedRfid(){
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
     Display->printf("下一步 ->");
+    drawBatteryStatus();
 }
 
 void CardputerView::displaySeedEnd(bool sdCardMount, bool vaultSaved) {
@@ -659,6 +697,7 @@ void CardputerView::displaySeedEnd(bool sdCardMount, bool vaultSaved) {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(80, 115);
     Display->printf("按 OK 继续");
+    drawBatteryStatus();
 }
 
 void CardputerView::displayPlugRfid(){
@@ -693,6 +732,7 @@ void CardputerView::displayPlugRfid(){
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
     Display->printf("下一步 ->");
+    drawBatteryStatus();
 }
 
 void CardputerView::displaySeedGeneralInfos() {
@@ -727,6 +767,7 @@ void CardputerView::displaySeedGeneralInfos() {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
     Display->printf("下一步 ->");
+    drawBatteryStatus();
 }
 
 void CardputerView::displayRfidInfos() {
@@ -761,6 +802,7 @@ void CardputerView::displayRfidInfos() {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
     Display->printf("下一步 ->");
+    drawBatteryStatus();
 }
 
 void CardputerView::displayRfidTagInfos() {
@@ -795,6 +837,7 @@ void CardputerView::displayRfidTagInfos() {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
     Display->printf("下一步 ->");
+    drawBatteryStatus();
 }
 
 void CardputerView::displaySeedLoadInfos() {
@@ -829,6 +872,7 @@ void CardputerView::displaySeedLoadInfos() {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
     Display->printf("下一步 ->");
+    drawBatteryStatus();
 }
 
 void CardputerView::displaySeedFormatGeneralInfos() {
@@ -863,6 +907,7 @@ void CardputerView::displaySeedFormatGeneralInfos() {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
     Display->printf("下一步 ->");
+    drawBatteryStatus();
 }
 
 void CardputerView::displaySdSaveGeneralInfos() {
@@ -897,6 +942,7 @@ void CardputerView::displaySdSaveGeneralInfos() {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
     Display->printf("下一步 ->");
+    drawBatteryStatus();
 }
 
 void CardputerView::displaySeedRestorationInfos() {
@@ -931,6 +977,7 @@ void CardputerView::displaySeedRestorationInfos() {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
     Display->printf("下一步 ->");
+    drawBatteryStatus();
 }
 
 void CardputerView::displayFileVersionInfos() {
@@ -965,6 +1012,7 @@ void CardputerView::displayFileVersionInfos() {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setCursor(90, 115);
     Display->printf("下一步 ->");
+    drawBatteryStatus();
 }
 
 std::string CardputerView::truncateString(const std::string& input, size_t maxLength) {
