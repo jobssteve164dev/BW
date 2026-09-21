@@ -468,23 +468,25 @@ void CardputerView::displayWalletValue(const std::vector<std::string>& visibleLi
     for (size_t index = 0; index < visibleLines.size(); ++index) {
         Display->drawString(
             visibleLines[index].c_str(),
-            WalletValueLayout::CONTENT_CENTER_X,
-            WalletValueLayout::FIRST_LINE_CENTER_Y + index * WalletValueLayout::LINE_SPACING
+            services::WalletValueLayout::CONTENT_CENTER_X,
+            services::WalletValueLayout::FIRST_LINE_CENTER_Y +
+                index * services::WalletValueLayout::LINE_SPACING
         );
     }
     if (canScrollUp) {
         Display->drawString(
             "^",
-            WalletValueLayout::INDICATOR_CENTER_X,
-            WalletValueLayout::FIRST_LINE_CENTER_Y
+            services::WalletValueLayout::INDICATOR_CENTER_X,
+            services::WalletValueLayout::FIRST_LINE_CENTER_Y
         );
     }
     if (canScrollDown) {
         Display->drawString(
             "v",
-            WalletValueLayout::INDICATOR_CENTER_X,
-            WalletValueLayout::FIRST_LINE_CENTER_Y +
-                (WalletValueLayout::VISIBLE_LINE_COUNT - 1) * WalletValueLayout::LINE_SPACING
+            services::WalletValueLayout::INDICATOR_CENTER_X,
+            services::WalletValueLayout::FIRST_LINE_CENTER_Y +
+                (services::WalletValueLayout::VISIBLE_LINE_COUNT - 1) *
+                    services::WalletValueLayout::LINE_SPACING
         );
     }
     Display->setTextWrap(true);
@@ -493,40 +495,43 @@ void CardputerView::displayWalletValue(const std::vector<std::string>& visibleLi
     Display->setTextSize(TEXT_MEDIUM);
     Display->fillRoundRect(
         40,
-        WalletValueLayout::ACTION_AREA_TOP,
+        services::WalletValueLayout::ACTION_AREA_TOP,
         20,
-        WalletValueLayout::ACTION_HEIGHT,
+        services::WalletValueLayout::ACTION_HEIGHT,
         DEFAULT_ROUND_RECT,
         PRIMARY_COLOR
     );
     Display->setTextColor(TEXT_COLOR);
-    Display->setCursor(45, WalletValueLayout::ACTION_AREA_TOP + 6);
+    Display->setCursor(45, services::WalletValueLayout::ACTION_AREA_TOP + 6);
     Display->printf("q");
 
-    Display->setCursor(68, WalletValueLayout::ACTION_AREA_TOP + 7);
+    Display->setCursor(68, services::WalletValueLayout::ACTION_AREA_TOP + 7);
     Display->setTextColor(PRIMARY_COLOR);
     Display->printf("显示二维码");
 
     // Display "OK" button
     Display->fillRoundRect(
         40,
-        WalletValueLayout::ACTION_AREA_TOP + WalletValueLayout::ACTION_ROW_SPACING,
+        services::WalletValueLayout::ACTION_AREA_TOP +
+            services::WalletValueLayout::ACTION_ROW_SPACING,
         30,
-        WalletValueLayout::ACTION_HEIGHT,
+        services::WalletValueLayout::ACTION_HEIGHT,
         DEFAULT_ROUND_RECT,
         PRIMARY_COLOR
     );
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(
         47,
-        WalletValueLayout::ACTION_AREA_TOP + WalletValueLayout::ACTION_ROW_SPACING + 7
+        services::WalletValueLayout::ACTION_AREA_TOP +
+            services::WalletValueLayout::ACTION_ROW_SPACING + 7
     );
     Display->printf("ok");
 
     // Display->setTextSize(TEXT_TINY);
     Display->setCursor(
         80,
-        WalletValueLayout::ACTION_AREA_TOP + WalletValueLayout::ACTION_ROW_SPACING + 6
+        services::WalletValueLayout::ACTION_AREA_TOP +
+            services::WalletValueLayout::ACTION_ROW_SPACING + 6
     );
     Display->setTextColor(PRIMARY_COLOR);
     Display->printf("通过 USB 输入");
