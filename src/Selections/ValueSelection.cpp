@@ -5,27 +5,52 @@ namespace selections {
 ValueSelection::ValueSelection(CardputerView& display, CardputerInput& input)
     : display(display), input(input) {}
 
-void ValueSelection::select(const std::string& description, const std::string& value, UsbService& usbService, LedService& ledService) {
+void ValueSelection::select(const std::string& description,
+                            const std::string& value,
+                            UsbService& usbService,
+                            LedService& ledService,
+                            KeyboardLayoutSelection& keyboardLayoutSelection) {
     char key = KEY_NONE;
-    bool firstOkPress = true;
-    unsigned long loopStartTime = millis();  // used to wait for keyboard init
+    WalletValueViewport viewport(
+        value,
+        WalletValueLayout::CHARACTERS_PER_LINE,
+        WalletValueLayout::VISIBLE_LINE_COUNT
+    );
+    auto& selectionContext = contexts::SelectionContext::getInstance();
 
-    display.displayTopBar(description, true, false, false, 20);
-    display.displayWalletValue(description, value);
+    const auto redraw = [&]() {
+        display.displayTopBar(description, true, false, false, 20);
+        display.displayWalletValue(
+            viewport.visibleLines(),
+            viewport.canScrollUp(),
+            viewport.canScrollDown()
+        );
+    };
+
+    redraw();
 
     while (key != KEY_RETURN_CUSTOM) {
         key = input.handler();
 
         switch (key) {
             case KEY_OK: // Send USB
-                ledService.showLed();
-                if (firstOkPress) { // hid needs approx 1.5sec to init
-                    unsigned long elapsed = millis() - loopStartTime;
-                    if (elapsed < 1500) {delay(1500 - elapsed);}
-                    firstOkPress = false;
+                if (!selectionContext.getIsLayoutSelected()) {
+                    const uint8_t* selectedLayout = keyboardLayoutSelection.select();
+                    usbService.setLayout(selectedLayout);
+                    usbService.begin();
+                    selectionContext.setIsLayoutSelected(true);
+                    redraw();
+                    delay(1500); // HID needs time to become available after initialization.
                 }
+                ledService.showLed();
                 usbService.sendString(value);
                 ledService.clearLed();
+                break;
+            case KEY_ARROW_UP:
+                if (viewport.scrollUp()) redraw();
+                break;
+            case KEY_ARROW_DOWN:
+                if (viewport.scrollDown()) redraw();
                 break;
             case 'q': // QR Code
                 display.setBrightness(50);
@@ -33,8 +58,7 @@ void ValueSelection::select(const std::string& description, const std::string& v
                 display.displayTopIcon();
                 input.waitPress();
                 display.setBrightness(120);
-                display.displayTopBar(description, true, false, false, 20);
-                display.displayWalletValue(description, value); 
+                redraw();
                 break;
         }
     }

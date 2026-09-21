@@ -87,22 +87,3 @@ def test_large_menu_text_uses_two_line_rows_instead_of_utf8_byte_offsets() -> No
         assert title_center + 8 <= description_center - 8
         assert description_center + 8 <= bottom
     assert 30 + row_step * (rows - 1) + row_height <= 135
-
-
-def test_wallet_value_preview_stays_above_the_action_buttons() -> None:
-    view = (ROOT / "src/Views/CardputerView.cpp").read_text(encoding="utf-8")
-
-    max_width_margin = int(re.search(r"fitTextToWidth\(value, Display->width\(\) - (\d+)\)", view).group(1))
-    preview_y = int(re.search(r"setCursor\(previewX, (\d+)\)", view).group(1))
-    action_y = int(re.search(r"fillRoundRect\(40, (\d+), 20, 15", view).group(1))
-    fit_function = re.search(r"std::string CardputerView::fitTextToWidth[\s\S]*?\n\}", view).group(0)
-
-    assert 240 - max_width_margin == 228
-    assert preview_y + 29 < action_y
-    assert "textWidth(text.c_str()) <= maxWidth" in fit_function
-    assert "textWidth((fitted + \"...\").c_str()) > maxWidth" in fit_function
-    assert "fitted.erase(characterStart)" in fit_function
-    assert "static_cast<unsigned char>(fitted[characterStart])" in fit_function
-    assert "setTextWrap(false)" in view
-    assert "setTextWrap(true)" in view
-    assert "auto limit = 110" not in view

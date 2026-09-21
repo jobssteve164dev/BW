@@ -454,41 +454,80 @@ void CardputerView::displayKeyboardLayout(const std::string& layoutName) {
     Display->setTextSize(TEXT_MEDIUM);
 }
 
-void CardputerView::displayWalletValue(std::string description, std::string value) {
+void CardputerView::displayWalletValue(const std::vector<std::string>& visibleLines,
+                                       bool canScrollUp,
+                                       bool canScrollDown) {
     // Clear the main view area
     displayClearMainView(5);
 
-    // Display value
-    Display->setTextSize(TEXT_BIG);
+    // Display the complete value through a three-line scrollable viewport.
+    Display->setTextSize(TEXT_MEDIUM);
     Display->setTextColor(TEXT_COLOR);
-    Display->setFont(&fonts::FreeSans12pt7b);
-    Display->setTextWrap(false);
-    auto preview = fitTextToWidth(value, Display->width() - 12);
-    auto previewX = getTextCenterOffset(preview, Display->width(), 0);
-    Display->setCursor(previewX, 62);
-    Display->printf("%s", preview.c_str());
-    Display->setTextWrap(true);
     Display->setFont(&fonts::efontCN_16);
+    Display->setTextWrap(false);
+    for (size_t index = 0; index < visibleLines.size(); ++index) {
+        Display->drawString(
+            visibleLines[index].c_str(),
+            WalletValueLayout::CONTENT_CENTER_X,
+            WalletValueLayout::FIRST_LINE_CENTER_Y + index * WalletValueLayout::LINE_SPACING
+        );
+    }
+    if (canScrollUp) {
+        Display->drawString(
+            "^",
+            WalletValueLayout::INDICATOR_CENTER_X,
+            WalletValueLayout::FIRST_LINE_CENTER_Y
+        );
+    }
+    if (canScrollDown) {
+        Display->drawString(
+            "v",
+            WalletValueLayout::INDICATOR_CENTER_X,
+            WalletValueLayout::FIRST_LINE_CENTER_Y +
+                (WalletValueLayout::VISIBLE_LINE_COUNT - 1) * WalletValueLayout::LINE_SPACING
+        );
+    }
+    Display->setTextWrap(true);
 
     // Display "Q" button
     Display->setTextSize(TEXT_MEDIUM);
-    Display->fillRoundRect(40, 95, 20, 15, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
+    Display->fillRoundRect(
+        40,
+        WalletValueLayout::ACTION_AREA_TOP,
+        20,
+        WalletValueLayout::ACTION_HEIGHT,
+        DEFAULT_ROUND_RECT,
+        PRIMARY_COLOR
+    );
     Display->setTextColor(TEXT_COLOR);
-    Display->setCursor(45, 101);
+    Display->setCursor(45, WalletValueLayout::ACTION_AREA_TOP + 6);
     Display->printf("q");
 
-    Display->setCursor(68, 102);
+    Display->setCursor(68, WalletValueLayout::ACTION_AREA_TOP + 7);
     Display->setTextColor(PRIMARY_COLOR);
     Display->printf("显示二维码");
 
     // Display "OK" button
-    Display->fillRoundRect(40, 117, 30, 15, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
+    Display->fillRoundRect(
+        40,
+        WalletValueLayout::ACTION_AREA_TOP + WalletValueLayout::ACTION_ROW_SPACING,
+        30,
+        WalletValueLayout::ACTION_HEIGHT,
+        DEFAULT_ROUND_RECT,
+        PRIMARY_COLOR
+    );
     Display->setTextColor(TEXT_COLOR);
-    Display->setCursor(47, 124);
+    Display->setCursor(
+        47,
+        WalletValueLayout::ACTION_AREA_TOP + WalletValueLayout::ACTION_ROW_SPACING + 7
+    );
     Display->printf("ok");
 
     // Display->setTextSize(TEXT_TINY);
-    Display->setCursor(80, 123);
+    Display->setCursor(
+        80,
+        WalletValueLayout::ACTION_AREA_TOP + WalletValueLayout::ACTION_ROW_SPACING + 6
+    );
     Display->setTextColor(PRIMARY_COLOR);
     Display->printf("通过 USB 输入");
 

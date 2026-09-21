@@ -6,6 +6,7 @@
 #include <cstring>
 #include <M5Cardputer.h>
 #include <Services/BatteryStatus.h>
+#include <Services/WalletValueLayout.h>
 
 // SIZING
 #define DEFAULT_MARGIN 5
@@ -56,7 +57,9 @@ public:
                                          const std::string& amount);
     static void displayTransactionFee(const std::string& amount, uint64_t satoshis);
     static void displayAnimatedQrFrame(const std::string& frame, size_t index, size_t total);
-    static void displayWalletValue(std::string description, std::string value);
+    static void displayWalletValue(const std::vector<std::string>& visibleLines,
+                                   bool canScrollUp,
+                                   bool canScrollDown);
     static void displayTopIcon();
     static void displayKeyboardLayout(const std::string& layoutName);
     static void displayPlugUsbMention();

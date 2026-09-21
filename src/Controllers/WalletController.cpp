@@ -36,28 +36,8 @@ void WalletController::handleWalletSelection() {
 void WalletController::handleWalletInformationSelection() {
     // Get the selected wallet
     auto selectedWallet = selectionContext.getCurrentSelectedWallet();
-    const uint8_t* selectedLayout = nullptr; // for keyboard layout
-
     // Select between Balance, Btc Address, PubKey, Sign
     auto selectedInfo = manager.walletInformationSelection.select(selectedWallet.getName());
-
-    // Init usb keyboard
-    switch (selectedInfo) {
-        case WalletInformationEnum::BALANCE:
-        case WalletInformationEnum::ADDRESS:
-        case WalletInformationEnum::PUBLIC_KEY:
-        case WalletInformationEnum::FINGERPRINT:
-        case WalletInformationEnum::DERIVE_PATH:
-            // Keyboard layout is not selected, this means usb keyboard is not init
-            if (!selectionContext.getIsLayoutSelected()) {
-                // Select keyboard layout and init it
-                selectedLayout = manager.keyboardLayoutSelection.select();
-                manager.usbService.setLayout(selectedLayout);
-                manager.usbService.begin();
-                selectionContext.setIsLayoutSelected(true);
-            }
-            break;
-    }
     
     // Route to the selected wallet infos
     switch (selectedInfo) {
@@ -71,7 +51,8 @@ void WalletController::handleWalletInformationSelection() {
                 "余额",
                 globalContext.getBitcoinBalanceUrl() + selectedWallet.getZPub(), 
                 manager.usbService,
-                manager.ledService
+                manager.ledService,
+                manager.keyboardLayoutSelection
             );
             break;
 
@@ -80,7 +61,8 @@ void WalletController::handleWalletInformationSelection() {
                 "地址",
                 selectedWallet.getAddress(), 
                 manager.usbService,
-                manager.ledService
+                manager.ledService,
+                manager.keyboardLayoutSelection
             );
             break;
 
@@ -98,7 +80,8 @@ void WalletController::handleWalletInformationSelection() {
                 "公钥 Zpub",
                 selectedWallet.getZPub(), 
                 manager.usbService,
-                manager.ledService
+                manager.ledService,
+                manager.keyboardLayoutSelection
             );
             break;
 
@@ -107,7 +90,8 @@ void WalletController::handleWalletInformationSelection() {
                 "主密钥指纹",
                 selectedWallet.getFingerprint(), 
                 manager.usbService,
-                manager.ledService
+                manager.ledService,
+                manager.keyboardLayoutSelection
             );
             break;
 
@@ -116,7 +100,8 @@ void WalletController::handleWalletInformationSelection() {
                 "派生路径",
                 selectedWallet.getDerivePath(), 
                 manager.usbService,
-                manager.ledService
+                manager.ledService,
+                manager.keyboardLayoutSelection
             );
             break;
     }
