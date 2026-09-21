@@ -5,17 +5,21 @@ namespace selections {
 StringPromptSelection::StringPromptSelection(CardputerView& display, CardputerInput& input)
     : display(display), input(input) {}
 
-std::string StringPromptSelection::select(std::string description, size_t offsetX, bool backButton, bool password) {
+std::string StringPromptSelection::select(std::string description,
+                                          size_t offsetX,
+                                          bool backButton,
+                                          bool password,
+                                          size_t minimumLength) {
     std::string output;
     char key = KEY_NONE;
     auto limit = globalContext.getMaxInputCharCount();
-    display.displayStringPrompt(description, output, offsetX, backButton);
+    display.displayStringPrompt(description, output, offsetX, backButton, password, minimumLength);
 
     if (password) {
         limit = globalContext.getMaxInputCharPasswordCount();
     }
 
-    while (key != KEY_OK || output.length() < 3) {
+    while (key != KEY_OK || output.length() < minimumLength) {
         key = input.handler();
         if (key == KEY_DEL) {
             if (!output.empty()) {
@@ -30,7 +34,7 @@ std::string StringPromptSelection::select(std::string description, size_t offset
         }
 
         if (key != KEY_NONE) {
-            display.displayStringPrompt(description, output, offsetX, backButton);
+            display.displayStringPrompt(description, output, offsetX, backButton, password, minimumLength);
         }
     }
     return output;

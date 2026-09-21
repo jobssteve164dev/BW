@@ -1,8 +1,12 @@
 #include "WalletRepository.h"
+#include <cctype>
 
 namespace repositories {
 
 bool WalletRepository::addWallet(const Wallet& wallet) {
+    if (wallets.size() >= globalContext.getMaxAllowedWallet()) {
+        return false;
+    }
     wallets.push_back(wallet);
     return true;
 }
@@ -11,6 +15,7 @@ bool WalletRepository::updateWallet(const Wallet& updatedWallet) {
     for (auto& wallet : wallets) {
         if (wallet.getZPub() == updatedWallet.getZPub() && 
             wallet.getName() == updatedWallet.getName()) {
+            wallet.clearSecrets();
             wallet = updatedWallet;
             return true;
         }
@@ -39,29 +44,46 @@ std::vector<std::string> WalletRepository::splitWallets(const std::string& fileC
     std::vector<std::string> walletDataList;
     std::istringstream stream(fileContent);
     std::string line;
-    std::string currentWalletData;
-    auto maxWallets =  globalContext.getMaxAllowedWallet();
-
-    while (std::getline(stream, line)) {
-        // Detecter le début d'un wallet
-        if (line.find("# WALLET") != std::string::npos) {
-            currentWalletData.clear(); // Reset for new wallet
-
-            // The 5 following lines are: Name, zPub, BitcoinAddress, Fingerprint, DerivePath
-            for (int i = 0; i < 5; ++i) {
-                if (std::getline(stream, line) && !line.empty()) {
-                    currentWalletData += line + "\n";
-                }
-            }
-
-            if (!currentWalletData.empty()) {
-                walletDataList.push_back(currentWalletData);
-                // Max allowed wallet count
-                if (walletDataList.size() >= maxWallets) {
-                    return walletDataList;
-                }
-            }
+    auto readLine = [&](std::string& output) {
+        if (!std::getline(stream, output)) {
+            output.clear();
+            return false;
         }
+        if (!output.empty() && output.back() == '\r') {
+            output.pop_back();
+        }
+        return true;
+    };
+
+    if (!readLine(line) || line != "Filetype: Card Wallet" ||
+        !readLine(line) || line != "Version: 2") {
+        return {};
+    }
+
+    while (readLine(line) && line.empty()) {}
+    size_t expectedIndex = 1;
+    const std::vector<std::string> requiredPrefixes = {
+        "Name: ", "zPub: ", "BitcoinAddress: ", "Fingerprint: ", "DerivePath: "
+    };
+
+    while (!line.empty()) {
+        if (expectedIndex > globalContext.getMaxAllowedWallet() ||
+            line != "# WALLET " + std::to_string(expectedIndex)) {
+            return {};
+        }
+
+        std::string currentWalletData;
+        for (const auto& prefix : requiredPrefixes) {
+            if (!readLine(line) || line.rfind(prefix, 0) != 0 ||
+                line.size() == prefix.size()) {
+                return {};
+            }
+            currentWalletData += line + "\n";
+        }
+        walletDataList.push_back(currentWalletData);
+        ++expectedIndex;
+
+        while (readLine(line) && line.empty()) {}
     }
     return walletDataList;
 }
@@ -106,13 +128,50 @@ Wallet WalletRepository::parseWallet(const std::string& walletData) {
     return Wallet(name, zPub, address, "", fingerprint, derivePath);
 }
 
-void WalletRepository::loadAllWallets(const std::string& fileContent) {
-    wallets.clear(); // delete existing wallets
+bool WalletRepository::parseWallets(const std::string& fileContent,
+                                    std::vector<Wallet>& parsedWallets) {
+    parsedWallets.clear();
     auto walletSegments = splitWallets(fileContent);
-
-    for (const auto& walletData : walletSegments) {
-        wallets.push_back(parseWallet(walletData));
+    if (walletSegments.empty()) {
+        return false;
     }
+
+    parsedWallets.reserve(walletSegments.size());
+    for (const auto& walletData : walletSegments) {
+        auto wallet = parseWallet(walletData);
+        const auto fingerprint = wallet.getFingerprint();
+        if (wallet.getName().empty() || wallet.getZPub().empty() ||
+            wallet.getAddress().empty() || wallet.getFingerprint().empty() ||
+            wallet.getDerivePath().empty() ||
+            wallet.getZPub().rfind("zpub", 0) != 0 ||
+            wallet.getAddress().rfind("bc1", 0) != 0 ||
+            fingerprint.size() > 8 ||
+            !std::all_of(fingerprint.begin(), fingerprint.end(),
+                         [](unsigned char value) { return std::isxdigit(value) != 0; }) ||
+            wallet.getDerivePath() != "m/84'/0'/0'/") {
+            return false;
+        }
+        parsedWallets.push_back(std::move(wallet));
+    }
+    return true;
+}
+
+bool WalletRepository::validateWalletsFile(const std::string& fileContent) {
+    std::vector<Wallet> parsedWallets;
+    return parseWallets(fileContent, parsedWallets);
+}
+
+bool WalletRepository::loadAllWallets(const std::string& fileContent) {
+    std::vector<Wallet> parsedWallets;
+    if (!parseWallets(fileContent, parsedWallets)) {
+        return false;
+    }
+
+    for (auto& wallet : wallets) {
+        wallet.clearSecrets();
+    }
+    wallets = std::move(parsedWallets);
+    return true;
 }
 
 std::string WalletRepository::getWalletsFileContent() {

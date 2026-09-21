@@ -24,7 +24,8 @@ public:
     bool deleteWallet(const std::string& walletName); 
     Wallet getWallet(const std::string& walletName);
     std::vector<Wallet> getAllWallets();
-    void loadAllWallets(const std::string& fileContent);
+    bool loadAllWallets(const std::string& fileContent);
+    bool validateWalletsFile(const std::string& fileContent);
     std::string getWalletsFileContent();
     std::string publicKeyToHexString(const std::vector<uint8_t>& vec);
 };

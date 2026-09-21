@@ -9,6 +9,8 @@
 #include <Services/LedService.h>
 #include <Services/RfidService.h>
 #include <Services/UsbService.h>
+#include <Services/SettingsService.h>
+#include <Services/VaultService.h>
 #include <Models/Wallet.h>
 #include <Selections/MnemonicSelection.h>
 #include <Selections/MnemonicRestoreSelection.h>
@@ -35,6 +37,12 @@ using namespace selections;
 
 namespace managers {
 
+enum class VaultUnlockResult {
+    UNLOCKED,
+    NOT_AVAILABLE,
+    CANCELLED_OR_FAILED
+};
+
 class GlobalManager {
 public:
     CardputerView& display;
@@ -44,6 +52,8 @@ public:
     SdService& sdService;
     UsbService& usbService;
     RfidService& rfidService;
+    SettingsService& settingsService;
+    VaultService& vaultService;
     LedService& ledService;
     MnemonicSelection& mnemonicSelection;
     MnemonicRestoreSelection& mnemonicRestoreSelection;
@@ -64,6 +74,8 @@ public:
                   WalletService& walletService,
                   SdService& sdService,
                   RfidService& rfidService,
+                  SettingsService& settingsService,
+                  VaultService& vaultService,
                   LedService& ledService,
                   UsbService& usbService,
                   MnemonicSelection& mnemonicSelection,
@@ -80,19 +92,30 @@ public:
     GlobalManager(const GlobalManager& other);
 
     bool manageSdConfirmation();
-    void manageSdSave(Wallet wallet);
+    bool manageSdSave(Wallet wallet);
+    void initializePersistentState();
+    bool manageVaultSave(const std::vector<uint8_t>& entropy,
+                         const std::string& passphrase,
+                         const Wallet& wallet);
+    VaultUnlockResult manageVaultUnlock(Wallet& wallet);
+    void clearLoadedWalletSecrets(Wallet wallet);
     std::string managePassphrase();
     std::string confirmStringsMatch(const std::string& prompt1, 
                                     const std::string& prompt2, 
-                                    const std::string& mismatchMessage);
+                                    const std::string& mismatchMessage,
+                                    size_t minimumLength = 3);
 
     std::tuple<std::vector<uint8_t>, std::string> manageRfidEncryption(std::vector<uint8_t> privateKey);
     std::vector<uint8_t> manageRfidDecryption();
 
     void manageRfidSave(std::vector<uint8_t> privateKey);
     std::vector<uint8_t> manageRfidRead();
-    std::vector<uint8_t> manageBitcoinSignature(std::string& psbt, std::string& mnemonic);
+    std::vector<uint8_t> manageBitcoinSignature(const std::string& psbt,
+                                                const std::string& mnemonic);
     Wallet manageBitcoinWalletCreation(std::string mnemonic, std::string passphrase, std::string walletName, bool loadedConfirmation=false);
+
+private:
+    bool loadWalletFileWithBackup(const std::string& path, std::string& content);
 };
 
 } // namespace managers

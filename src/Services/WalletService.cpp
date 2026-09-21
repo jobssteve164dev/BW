@@ -33,8 +33,12 @@ std::vector<Wallet> WalletService::getAllWallets() {
     return repository.getWallets();
 }
 
-void WalletService::loadAllWallets(const std::string& fileContent) {
-    repository.loadAllWallets(fileContent);
+bool WalletService::loadAllWallets(const std::string& fileContent) {
+    return repository.loadAllWallets(fileContent);
+}
+
+bool WalletService::validateWalletsFile(const std::string& fileContent) {
+    return repository.validateWalletsFile(fileContent);
 }
 
 std::string WalletService::getWalletsFileContent() {

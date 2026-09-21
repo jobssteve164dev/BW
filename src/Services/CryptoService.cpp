@@ -10,6 +10,7 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/pkcs5.h"
+#include "mbedtls/gcm.h"
 #include "cryptopp/rng.h"
 
 namespace services {
@@ -107,12 +108,17 @@ std::vector<std::string> CryptoService::privateKeyToMnemonic(const std::vector<u
     auto entropy = std::vector<uint8_t>(privateKey.begin(), privateKey.end());
     auto mnemonic = BIP39::create_mnemonic(entropy, BIP39::language::en);
     auto validation = BIP39::valid_mnemonic(mnemonic, BIP39::language::en);
+    volatile uint8_t* entropyData = entropy.empty() ? nullptr : entropy.data();
+    for (size_t index = 0; index < entropy.size(); ++index) {
+        entropyData[index] = 0;
+    }
+    entropy.clear();
     if (!validation) {return {};}
 
     return {mnemonic.begin(), mnemonic.end()};;
 }
 
-std::string CryptoService::mnemonicVectorToString(std::vector<std::string> mnemonic) {
+std::string CryptoService::mnemonicVectorToString(const std::vector<std::string>& mnemonic) {
     std::ostringstream oss;
     for (auto it = mnemonic.begin(); it != mnemonic.end(); ++it) {
         if (it != mnemonic.begin()) {
@@ -326,7 +332,19 @@ std::string CryptoService::encodeBase58(const uint8_t* input, size_t len) {
 }
 
 std::vector<uint8_t> CryptoService::deriveKeyFromPassphrase(const std::string& passphrase, const std::string& salt, size_t keySize) {
+    const std::vector<uint8_t> saltBytes(salt.begin(), salt.end());
+    return deriveKeyFromPassphrase(passphrase, saltBytes, 10000, keySize);
+}
+
+std::vector<uint8_t> CryptoService::deriveKeyFromPassphrase(const std::string& passphrase,
+                                                            const std::vector<uint8_t>& salt,
+                                                            uint32_t iterations,
+                                                            size_t keySize) {
     std::vector<uint8_t> key(keySize);
+
+    if (passphrase.empty() || salt.empty() || iterations == 0 || keySize == 0) {
+        return {};
+    }
 
     // initialize context
     mbedtls_md_context_t mdContext;
@@ -344,8 +362,8 @@ std::vector<uint8_t> CryptoService::deriveKeyFromPassphrase(const std::string& p
     int ret = mbedtls_pkcs5_pbkdf2_hmac(
         &mdContext,                               // Contexte de hachage
         reinterpret_cast<const unsigned char*>(passphrase.data()), passphrase.size(), // Passphrase
-        reinterpret_cast<const unsigned char*>(salt.data()), salt.size(),             // Salt
-        10000,                                    // Nombre iterations
+        salt.data(), salt.size(),                 // Salt
+        iterations,                               // Nombre iterations
         keySize,                                  // Taille de la clé
         key.data()                                // Résultat
     );
@@ -357,6 +375,81 @@ std::vector<uint8_t> CryptoService::deriveKeyFromPassphrase(const std::string& p
     }
 
     return key;
+}
+
+bool CryptoService::encryptAesGcm(const std::vector<uint8_t>& plaintext,
+                                  const std::vector<uint8_t>& key,
+                                  const std::vector<uint8_t>& nonce,
+                                  const std::vector<uint8_t>& aad,
+                                  std::vector<uint8_t>& ciphertext,
+                                  std::vector<uint8_t>& tag) {
+    ciphertext.clear();
+    tag.clear();
+    if (plaintext.empty() || key.size() != 32 || nonce.size() != 12) {
+        return false;
+    }
+
+    mbedtls_gcm_context context;
+    mbedtls_gcm_init(&context);
+    if (mbedtls_gcm_setkey(&context, MBEDTLS_CIPHER_ID_AES, key.data(), 256) != 0) {
+        mbedtls_gcm_free(&context);
+        return false;
+    }
+
+    ciphertext.resize(plaintext.size());
+    tag.resize(16);
+    const int result = mbedtls_gcm_crypt_and_tag(
+        &context,
+        MBEDTLS_GCM_ENCRYPT,
+        plaintext.size(),
+        nonce.data(), nonce.size(),
+        aad.empty() ? nullptr : aad.data(), aad.size(),
+        plaintext.data(), ciphertext.data(),
+        tag.size(), tag.data());
+    mbedtls_gcm_free(&context);
+
+    if (result != 0) {
+        ciphertext.clear();
+        tag.clear();
+        return false;
+    }
+    return true;
+}
+
+bool CryptoService::decryptAesGcm(const std::vector<uint8_t>& ciphertext,
+                                  const std::vector<uint8_t>& key,
+                                  const std::vector<uint8_t>& nonce,
+                                  const std::vector<uint8_t>& aad,
+                                  const std::vector<uint8_t>& tag,
+                                  std::vector<uint8_t>& plaintext) {
+    plaintext.clear();
+    if (ciphertext.empty() || key.size() != 32 || nonce.size() != 12 || tag.size() != 16) {
+        return false;
+    }
+
+    mbedtls_gcm_context context;
+    mbedtls_gcm_init(&context);
+    if (mbedtls_gcm_setkey(&context, MBEDTLS_CIPHER_ID_AES, key.data(), 256) != 0) {
+        mbedtls_gcm_free(&context);
+        return false;
+    }
+
+    plaintext.resize(ciphertext.size());
+    const int result = mbedtls_gcm_auth_decrypt(
+        &context,
+        ciphertext.size(),
+        nonce.data(), nonce.size(),
+        aad.empty() ? nullptr : aad.data(), aad.size(),
+        tag.data(), tag.size(),
+        ciphertext.data(), plaintext.data());
+    mbedtls_gcm_free(&context);
+
+    if (result != 0) {
+        std::fill(plaintext.begin(), plaintext.end(), 0);
+        plaintext.clear();
+        return false;
+    }
+    return true;
 }
 
 std::vector<uint8_t> CryptoService::encryptAES(const std::vector<uint8_t>& data, const std::vector<uint8_t>& key) {

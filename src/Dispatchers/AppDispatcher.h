@@ -12,6 +12,8 @@
 #include <Services/SdService.h>
 #include <Services/UsbService.h>
 #include <Services/RfidService.h>
+#include <Services/SettingsService.h>
+#include <Services/VaultService.h>
 #include <Selections/ModeSelection.h>
 #include <Selections/FilePathSelection.h>
 #include <Selections/MnemonicSelection.h>
@@ -79,6 +81,8 @@ private:
     SdService sdService;
     UsbService usbService;
     RfidService rfidService;
+    SettingsService settingsService;
+    VaultService vaultService;
 
     // Managers
     GlobalManager globalManager;

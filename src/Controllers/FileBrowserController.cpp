@@ -17,6 +17,9 @@ void FileBrowserController::handleFileSelection() {
     if (!manager.sdService.getSdState()) {
         manager.display.displaySubMessage("未找到 SD 卡", 38, 2000);
         manager.sdService.close(); // SD card stop
+        if (selectionContext.getTransactionOngoing()) {
+            manager.clearLoadedWalletSecrets(selectionContext.getCurrentSelectedWallet());
+        }
         manager.selectionContext.setIsModeSelected(false);
         selectionContext.setTransactionOngoing(false);
         return;
@@ -52,6 +55,9 @@ void FileBrowserController::handleFileSelection() {
     manager.sdService.close(); // SD card stop
     currentPath = "/"; // reset to root path
 
+    if (selectionContext.getTransactionOngoing()) {
+        manager.clearLoadedWalletSecrets(selectionContext.getCurrentSelectedWallet());
+    }
     selectionContext.setIsModeSelected(false); // go back to menu
     selectionContext.setIsWalletSelected(false);
     selectionContext.setCurrentSelectedFileType(FileTypeEnum::WALLET); // default

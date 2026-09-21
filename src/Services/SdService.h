@@ -25,6 +25,13 @@ public:
     std::string readFile(const char* filePath);
     bool writeFile(const char* filePath, const std::string& data);
     bool writeBinaryFile(const char* filePath, const std::vector<uint8_t>& data);
+    bool replaceBinaryFile(const char* filePath,
+                           const char* temporaryPath,
+                           const char* backupPath,
+                           const std::vector<uint8_t>& data);
+    bool promoteBackupFile(const char* filePath,
+                           const char* backupPath,
+                           const char* corruptPath);
     bool appendToFile(const char* filePath, const std::string& data);
     std::vector<uint8_t> readBinaryFile(const char* filePath);
     bool deleteFile(const char* filePath);

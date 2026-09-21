@@ -37,9 +37,12 @@ AppDispatcher::AppDispatcher(CardputerView& display, CardputerInput& input)
       sdService(),                                   // SD Card logic
       usbService(),                                  // USB (keyboard) logic
       rfidService(),                                 // RFID tag read and write logic
+      settingsService(),                             // Persistent non-secret settings
+      vaultService(cryptoService, sdService),         // Encrypted seed vault on SD
     
       // Global manager to manage process as saveSD, readRFID...
-      globalManager(display, input, cryptoService, walletService, sdService, rfidService, 
+      globalManager(display, input, cryptoService, walletService, sdService, rfidService,
+                    settingsService, vaultService,
                     ledService, usbService, mnemonicSelection, mnemonicRestoreSelection,
                     stringPromptSelection, confirmationSelection, seedRestorationSelection, 
                     filePathSelection,keyboardLayoutSelection, walletSelection,
@@ -58,6 +61,7 @@ AppDispatcher::AppDispatcher(CardputerView& display, CardputerInput& input)
 
 void AppDispatcher::setup() {
     display.initialize();
+    globalManager.initializePersistentState();
 }
 
 void AppDispatcher::run() {

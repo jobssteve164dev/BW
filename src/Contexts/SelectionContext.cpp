@@ -46,7 +46,8 @@ Wallet SelectionContext::getCurrentSelectedWallet() const {
 }
 
 void SelectionContext::setCurrentSelectedWallet(const Wallet& wallet) { 
-    this->currentSelectedWallet = wallet; 
+    currentSelectedWallet.clearSecrets();
+    this->currentSelectedWallet = wallet;
 }
 
 uint16_t SelectionContext::getCurrentFileIndex() const {

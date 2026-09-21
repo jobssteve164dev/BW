@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 namespace models {
 
@@ -15,12 +16,20 @@ private:
     std::vector<uint8_t> privateKey; // Only stored if restored or loaded
     std::string mnemonic;            // Only store if restore from SD
     std::string passphrase;          // Only store for signing transaction
+    bool secretsLoaded = false;      // Empty BIP39 passphrases are valid loaded values
     std::string fingerprint;         // Master public fingerprint
     std::string derivePath;          // Derivation
 
 public:
-    Wallet() : name(""), address(""), mnemonic(""), passphrase(""), 
-               fingerprint(""), derivePath(""), zPub(""), xPub("") {}
+    Wallet(const Wallet&) = default;
+    Wallet& operator=(const Wallet&) = default;
+    Wallet(Wallet&&) noexcept = default;
+    Wallet& operator=(Wallet&&) noexcept = default;
+    ~Wallet() {
+        clearSecrets();
+    }
+
+    Wallet() = default;
 
     Wallet(const std::string& walletName, 
            const std::string& zpubKey, 
@@ -71,12 +80,16 @@ public:
         return privateKey;
     }
 
-    std::string getMnemonic() const {
+    const std::string& getMnemonic() const {
         return mnemonic;
     }
 
-    std::string getPassphrase() const {
+    const std::string& getPassphrase() const {
         return passphrase;
+    }
+
+    bool hasLoadedSecrets() const {
+        return secretsLoaded;
     }
 
     std::string getFingerprint() const {
@@ -110,6 +123,7 @@ public:
 
     void setMnemonic(const std::string& mne) {
         mnemonic = mne;
+        secretsLoaded = !mne.empty();
     }
 
     void setPassphrase(const std::string& pp) {
@@ -122,6 +136,25 @@ public:
 
     void setDerivePath(const std::string& path) {
         derivePath = path;
+    }
+
+    void clearSecrets() {
+        volatile char* mnemonicData = mnemonic.empty() ? nullptr : &mnemonic[0];
+        for (size_t index = 0; index < mnemonic.size(); ++index) {
+            mnemonicData[index] = 0;
+        }
+        volatile char* passphraseData = passphrase.empty() ? nullptr : &passphrase[0];
+        for (size_t index = 0; index < passphrase.size(); ++index) {
+            passphraseData[index] = 0;
+        }
+        volatile uint8_t* privateKeyData = privateKey.empty() ? nullptr : privateKey.data();
+        for (size_t index = 0; index < privateKey.size(); ++index) {
+            privateKeyData[index] = 0;
+        }
+        mnemonic.clear();
+        passphrase.clear();
+        privateKey.clear();
+        secretsLoaded = false;
     }
 
     // Utils

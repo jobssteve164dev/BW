@@ -28,6 +28,9 @@ void SdService::close() {
 }
 
 bool SdService::isFile(const std::string filePath) {
+    if (!sdCardMounted) {
+        return false;
+    }
     File f = SD.open(filePath.c_str());
     if (f && !f.isDirectory()) {
         f.close();
@@ -139,9 +142,9 @@ bool SdService::writeFile(const char* filePath, const std::string& data) {
     File file = SD.open(filePath, FILE_WRITE);
     if (file) {
         const uint8_t* buffer = reinterpret_cast<const uint8_t*>(data.c_str());
-        file.write(buffer, data.length());
+        const size_t written = file.write(buffer, data.length());
         file.close();
-        return true;
+        return written == data.length();
     }
     return false;
 }
@@ -164,12 +167,88 @@ bool SdService::writeBinaryFile(const char* filePath, const std::vector<uint8_t>
 
     File file = SD.open(filePath, FILE_WRITE);
     if (file) {
-        file.write(data.data(), data.size());
+        const size_t written = file.write(data.data(), data.size());
         file.close();
-        return true; 
+        return written == data.size();
     }
 
     return false; 
+}
+
+bool SdService::replaceBinaryFile(const char* filePath,
+                                  const char* temporaryPath,
+                                  const char* backupPath,
+                                  const std::vector<uint8_t>& data) {
+    if (!sdCardMounted || data.empty()) {
+        return false;
+    }
+
+    if (SD.exists(temporaryPath) && !SD.remove(temporaryPath)) {
+        return false;
+    }
+    if (!writeBinaryFile(temporaryPath, data)) {
+        return false;
+    }
+    if (readBinaryFile(temporaryPath) != data) {
+        return false;
+    }
+
+    const bool hadOriginal = SD.exists(filePath);
+    const bool hadBackup = SD.exists(backupPath);
+    if (hadOriginal) {
+        if (hadBackup && !SD.remove(backupPath)) {
+            return false;
+        }
+        if (!SD.rename(filePath, backupPath)) {
+            return false;
+        }
+    }
+    if (!SD.rename(temporaryPath, filePath)) {
+        if (hadOriginal) {
+            SD.rename(backupPath, filePath);
+        }
+        return false;
+    }
+
+    if (readBinaryFile(filePath) != data) {
+        return false;
+    }
+
+    // Keep the previous verified generation as a steady-state backup. On the
+    // first write, create an identical backup so a later damaged main file can
+    // still be recovered.
+    if (!hadOriginal && !hadBackup) {
+        if (!writeBinaryFile(backupPath, data) || readBinaryFile(backupPath) != data) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool SdService::promoteBackupFile(const char* filePath,
+                                  const char* backupPath,
+                                  const char* corruptPath) {
+    if (!sdCardMounted || !SD.exists(backupPath)) {
+        return false;
+    }
+
+    const bool hadMainFile = SD.exists(filePath);
+    if (hadMainFile) {
+        if (SD.exists(corruptPath) && !SD.remove(corruptPath)) {
+            return false;
+        }
+        if (!SD.rename(filePath, corruptPath)) {
+            return false;
+        }
+    }
+
+    if (!SD.rename(backupPath, filePath)) {
+        if (hadMainFile) {
+            SD.rename(corruptPath, filePath);
+        }
+        return false;
+    }
+    return true;
 }
 
 bool SdService::appendToFile(const char* filePath, const std::string& data) {

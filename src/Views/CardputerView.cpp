@@ -44,13 +44,13 @@ void CardputerView::displayTopBar(const std::string& title, bool submenu, bool s
         drawSearchIcon(Display->width() - 20, marginY-2, 10, PRIMARY_COLOR);
 
         Display->setCursor(offsetX, marginY);
-        Display->printf(searchQuery.c_str());
+        Display->printf("%s", searchQuery.c_str());
     } else {
         Display->setTextColor(TEXT_COLOR);
 
         Display->setCursor(offsetX+8, marginY);
         Display->setTextSize(TEXT_BIG);
-        Display->printf(title.c_str());
+        Display->printf("%s", title.c_str());
     }
 
     if (bitcoinIcon) {
@@ -102,10 +102,10 @@ void CardputerView::displaySelection(
 
         if (upperCase) {
             upperString = toUpperCase(selectionStrings[currentIndex]);
-            Display->printf(upperString.c_str());
+            Display->printf("%s", upperString.c_str());
         } else { 
             auto truncatedString = truncateString(selectionStrings[currentIndex], 24);
-            Display->printf(truncatedString.c_str());
+            Display->printf("%s", truncatedString.c_str());
         }
 
         if (showCurrency) {
@@ -123,7 +123,7 @@ void CardputerView::displaySelection(
             auto descriptionX = getTextCenterOffset(description, Display->width(), 0);
             auto descriptionY = startText + 18 + stepY * i;
             Display->setCursor(descriptionX, descriptionY);
-            Display->printf(description.c_str());
+            Display->printf("%s", description.c_str());
         }
     }
 }
@@ -154,7 +154,7 @@ void CardputerView::displayWalletFileInfo(std::string defaultFileName) {
     auto truncated = truncateString(defaultFileName, 24);
     auto x = getTextCenterOffset(truncated, Display->width(), 4);
     Display->setCursor(x, 88);
-    Display->printf(truncated.c_str());
+    Display->printf("%s", truncated.c_str());
 
     // Button OK
     Display->fillRoundRect(70, 105, 100, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
@@ -164,7 +164,12 @@ void CardputerView::displayWalletFileInfo(std::string defaultFileName) {
     Display->printf("按 OK 继续");
 }
 
-void CardputerView::displayStringPrompt(std::string stringDescription, std::string stringInput, size_t offsetX, bool backButton) {
+void CardputerView::displayStringPrompt(std::string stringDescription,
+                                        std::string stringInput,
+                                        size_t offsetX,
+                                        bool backButton,
+                                        bool password,
+                                        size_t minimumLength) {
     // Clear
     displayClearMainView(5);
 
@@ -175,21 +180,22 @@ void CardputerView::displayStringPrompt(std::string stringDescription, std::stri
     Display->setTextSize(TEXT_MEDIUM);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(53-offsetX, 48);
-    Display->printf(stringDescription.c_str());
+    Display->printf("%s", stringDescription.c_str());
 
     // Check the length of the input and truncate if necessary
+    const std::string visibleInput = password ? std::string(stringInput.length(), '*') : stringInput;
     std::string truncatedInput;
-    if (stringInput.length() > 15) {
-        truncatedInput = stringInput.substr(stringInput.length() - 15); // Get the last 15 characters
+    if (visibleInput.length() > 15) {
+        truncatedInput = visibleInput.substr(visibleInput.length() - 15); // Get the last 15 characters
     } else {
-        truncatedInput = stringInput;
+        truncatedInput = visibleInput;
     }
 
     // input
     Display->setTextSize(TEXT_MEDIUM_LARGE);
     Display->drawRoundRect(42, 62, 155, 25, DEFAULT_ROUND_RECT, RECT_COLOR_DARK);
     Display->setCursor(51, 73);
-    Display->printf(truncatedInput.c_str());
+    Display->printf("%s", truncatedInput.c_str());
 
     size_t xPos = 110; 
     if (backButton) {
@@ -201,7 +207,7 @@ void CardputerView::displayStringPrompt(std::string stringDescription, std::stri
     }
 
     // Button save
-    if (stringInput.length() < 3) {
+    if (stringInput.length() < minimumLength) {
         Display->drawRoundRect(xPos-30, 95, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
     } else {
         Display->fillRoundRect(xPos-30, 95, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
@@ -223,7 +229,7 @@ void CardputerView::displayConfirmationPrompt(std::string stringDescription) {
     Display->setTextSize(TEXT_MEDIUM);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(57, 62);
-    Display->printf(stringDescription.c_str());
+    Display->printf("%s", stringDescription.c_str());
     Display->setTextSize(TEXT_MEDIUM);
 
     // < button
@@ -248,7 +254,7 @@ void CardputerView::displaySubMessage(std::string message, size_t x, int delayMs
     Display->setTextSize(TEXT_WIDE);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(x, 80);
-    Display->printf(message.c_str());
+    Display->printf("%s", message.c_str());
     Display->setTextSize(TEXT_MEDIUM);
 
     if (delayMs) {
@@ -287,7 +293,7 @@ void CardputerView::displayMnemonicWord(std::string word, size_t index, size_t s
     Display->setTextColor(TEXT_COLOR);
     auto offsetX= getTextCenterOffset(word, Display->width(), 8);
     Display->setCursor(offsetX, 80);
-    Display->printf(word.c_str());
+    Display->printf("%s", word.c_str());
 
     if (!restore) {
         // < >
@@ -365,7 +371,7 @@ void CardputerView::displayDebug(std::string message) {
     Display->setCursor(100, 10);
     Display->printf("调试信息");
     Display->setCursor(10, 50);
-    Display->printf(message.c_str());
+    Display->printf("%s", message.c_str());
     delay(3000);
 }
 
@@ -404,7 +410,7 @@ void CardputerView::displayKeyboardLayout(const std::string& layoutName) {
     Display->setTextColor(TEXT_COLOR);
     auto offsetX = getTextCenterOffset(layoutName, Display->width(), 4.5);
     Display->setCursor(offsetX, 80);
-    Display->printf(layoutName.c_str());
+    Display->printf("%s", layoutName.c_str());
 
     // Arrows for navigation
     Display->setCursor(20, 78);
@@ -429,7 +435,7 @@ void CardputerView::displayWalletValue(std::string description, std::string valu
     auto preview = fitTextToWidth(value, Display->width() - 12);
     auto previewX = getTextCenterOffset(preview, Display->width(), 0);
     Display->setCursor(previewX, 62);
-    Display->printf(preview.c_str());
+    Display->printf("%s", preview.c_str());
     Display->setTextWrap(true);
     Display->setFont(&fonts::efontCN_16);
 
@@ -554,7 +560,7 @@ void CardputerView::displaySeedRfid(){
     Display->printf("下一步 ->");
 }
 
-void CardputerView::displaySeedEnd(bool sdCardMount) {
+void CardputerView::displaySeedEnd(bool sdCardMount, bool vaultSaved) {
     Display->fillScreen(BACKGROUND_COLOR);
 
     // Box frame
@@ -570,17 +576,18 @@ void CardputerView::displaySeedEnd(bool sdCardMount) {
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(41, 46);
-    Display->printf("请妥善保管助记词");
+    Display->printf("%s", vaultSaved ? "加密备份已保存" : "请妥善保管助记词");
 
     // Text
     Display->setCursor(12, 65);
-    Display->printf(sdCardMount ? "公开信息已保存到 SD 卡" : "公开信息未保存到 SD 卡");
+    Display->printf("%s", sdCardMount ? "公开信息已保存到 SD 卡" : "公开信息未保存到 SD 卡");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setTextSize(TEXT_MEDIUM_LARGE);
-    auto finalString = sdCardMount ? "/card-wallets.txt" : "重启后将丢失";
+    auto finalString = vaultSaved ? "/bw-vault.dat" :
+                       (sdCardMount ? "/card-wallets.txt" : "重启后将丢失");
     auto offsetX = getTextCenterOffset(finalString, Display->width(), 4);
     Display->setCursor(offsetX, 88);
-    Display->printf(finalString);
+    Display->printf("%s", finalString);
 
     // Button OK
     Display->fillRoundRect(70, 105, 100, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
@@ -640,7 +647,7 @@ void CardputerView::displaySeedGeneralInfos() {
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(25, 46);
-    Display->printf("设备不会保存助记词");
+    Display->printf("助记词默认不会保存");
 
     // Text
     Display->setCursor(30, 65);
@@ -742,15 +749,15 @@ void CardputerView::displaySeedLoadInfos() {
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(15, 46);
-    Display->printf("设备不会保存助记词");
+    Display->printf("可从加密保险库解锁");
 
     // Text
     Display->setCursor(20, 65);
-    Display->printf("签名交易前需要重新加载");
+    Display->printf("签名时输入保险库密码");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(24, 88);
     Display->setTextSize(TEXT_MEDIUM);
-    Display->printf("可用 RFID、SD 卡或手动输入");
+    Display->printf("也可用 RFID 或手动输入");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);
@@ -810,15 +817,15 @@ void CardputerView::displaySdSaveGeneralInfos() {
     Display->setTextSize(TEXT_SMALL);
     Display->setTextColor(TEXT_COLOR);
     Display->setCursor(28, 46);
-    Display->printf("仅保存钱包公开信息");
+    Display->printf("公开信息会自动加载");
 
     // Text
     Display->setCursor(22, 65);
-    Display->printf("可手动编辑钱包文件");
+    Display->printf("可选加密保存助记词");
     Display->setTextColor(PRIMARY_COLOR);
     Display->setCursor(26, 88);
     Display->setTextSize(TEXT_MEDIUM_LARGE);
-    Display->printf("不会保存助记词");
+    Display->printf("签名时输入密码解锁");
 
     // Button Next
     Display->fillRoundRect(80, 105, 80, 20, DEFAULT_ROUND_RECT, PRIMARY_COLOR);

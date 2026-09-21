@@ -3,6 +3,32 @@
 #include <stdexcept>
 
 namespace managers {
+namespace {
+
+void clearBytes(std::vector<uint8_t>& value) {
+    volatile uint8_t* data = value.empty() ? nullptr : value.data();
+    for (size_t index = 0; index < value.size(); ++index) {
+        data[index] = 0;
+    }
+    value.clear();
+}
+
+void clearString(std::string& value) {
+    volatile char* data = value.empty() ? nullptr : &value[0];
+    for (size_t index = 0; index < value.size(); ++index) {
+        data[index] = 0;
+    }
+    value.clear();
+}
+
+void clearWords(std::vector<std::string>& words) {
+    for (auto& word : words) {
+        clearString(word);
+    }
+    words.clear();
+}
+
+} // namespace
 
 SeedManager::SeedManager(const GlobalManager& gm)
     : GlobalManager(gm) // calls GlobalManager's copy constructor
@@ -104,25 +130,37 @@ bool SeedManager::manageMnemonicRestore(size_t wordCount) {
     // Passphrase
     auto passphrase = managePassphrase(); // return "" in case user doesn't want passphrase
 
-    // Save RFID
-    manageRfidSave(privateKey);
-
     // Prompt for a wallet name
     display.displayTopBar("钱包", false, false, true);
     auto walletName = stringPromptSelection.select("输入钱包名称");
-    if (walletName.empty()) {return false;}
+    if (walletName.empty()) {
+      clearWords(mnemonic);
+      clearBytes(privateKey);
+      clearString(mnemonicString);
+      clearString(passphrase);
+      return false;
+    }
     auto wallet = manageBitcoinWalletCreation(mnemonicString, passphrase, walletName);
 
     // Save wallet to SD if any
     display.displaySubMessage("正在加载", 83);
     sdService.begin(); // SD card start
-    manageSdSave(wallet);
+    auto publicWalletSaved = manageSdSave(wallet);
+    auto vaultSaved = manageVaultSave(privateKey, passphrase, wallet);
+
+    // Optional additional RFID backup
+    manageRfidSave(privateKey);
 
     // Display seed save infos
-    display.displaySeedEnd(sdService.getSdState());
+    display.displaySeedEnd(publicWalletSaved, vaultSaved);
     input.waitPress();
 
     sdService.close(); // SD card stop
+
+    clearWords(mnemonic);
+    clearBytes(privateKey);
+    clearString(mnemonicString);
+    clearString(passphrase);
     
     // Go to portfolio
     selectionContext.setIsWalletSelected(false);
@@ -130,12 +168,12 @@ bool SeedManager::manageMnemonicRestore(size_t wordCount) {
     return true;
 }
 
-std::vector<std::string> SeedManager::manageMnemonicLoading(size_t wordCount) {
+bool SeedManager::manageMnemonicLoading(size_t wordCount) {
     // Get the words from user
     auto mnemonic = manageMnemonicWrite(wordCount);
     if (mnemonic.empty()) { // not valid mnemonic will return empty object
         display.displaySubMessage("助记词无效", 41, 2000);
-        return {};
+        return false;
     }
 
     // At this point mnemonic is valid
@@ -155,7 +193,10 @@ std::vector<std::string> SeedManager::manageMnemonicLoading(size_t wordCount) {
     if (zPub.toString().c_str() != wallet.getZPub()) {
       display.displaySubMessage("助记词与钱包不匹配", 18, 3000);
       selectionContext.setTransactionOngoing(false);
-      return {};
+      clearWords(mnemonic);
+      clearString(mnemonicString);
+      clearString(passphrase);
+      return false;
     }
 
     display.displaySubMessage("助记词已加载", 65, 2000);
@@ -172,8 +213,11 @@ std::vector<std::string> SeedManager::manageMnemonicLoading(size_t wordCount) {
     display.displaySubMessage("选择 PSBT 文件", 50, 3000);
 
     sdService.close(); // SD card stop
-    
-    return mnemonic;
+
+    clearWords(mnemonic);
+    clearString(mnemonicString);
+    clearString(passphrase);
+    return true;
 }
 
 bool SeedManager::manageRfidSeedLoading() {
@@ -190,6 +234,7 @@ bool SeedManager::manageRfidSeedLoading() {
 
     // Bad seed if empty
     if (mnemonic.empty()) {
+      clearBytes(privateKey);
       return false;
     }
 
@@ -207,6 +252,10 @@ bool SeedManager::manageRfidSeedLoading() {
       display.displaySubMessage("助记词与钱包不匹配", 18, 4000);
       selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
       selectionContext.setTransactionOngoing(false);
+      clearWords(mnemonic);
+      clearBytes(privateKey);
+      clearString(mnemonicString);
+      clearString(passphrase);
       return false;
     }
 
@@ -227,6 +276,10 @@ bool SeedManager::manageRfidSeedLoading() {
 
     display.displaySubMessage("选择 PSBT 文件", 50, 3000);
 
+    clearWords(mnemonic);
+    clearBytes(privateKey);
+    clearString(mnemonicString);
+    clearString(passphrase);
     return true;
 }
 
@@ -255,24 +308,32 @@ void SeedManager::manageRfidSeedRestoration() {
     // Prompt for a wallet name
     display.displayTopBar("钱包", false, false, true);
     auto walletName = stringPromptSelection.select("输入钱包名称");
-    if (walletName.empty()) {return;}
+    if (walletName.empty()) {
+      clearWords(mnemonic);
+      clearBytes(privateKey);
+      clearString(mnemonicString);
+      clearString(passphrase);
+      return;
+    }
     auto wallet = manageBitcoinWalletCreation(mnemonicString, passphrase, walletName);
 
     // Save wallet to SD if any
     display.displaySubMessage("正在加载", 83);
     sdService.begin(); // SD card start
-    manageSdSave(wallet);
+    auto publicWalletSaved = manageSdSave(wallet);
+    auto vaultSaved = manageVaultSave(privateKey, passphrase, wallet);
 
     // Display seed save infos
-    display.displaySeedEnd(sdService.getSdState());
+    display.displaySeedEnd(publicWalletSaved, vaultSaved);
     input.waitPress();
 
     sdService.close(); // SD card stop
 
     // Delete seed
-    mnemonic.clear();
-    privateKey.clear();
-    mnemonicString.clear(); 
+    clearWords(mnemonic);
+    clearBytes(privateKey);
+    clearString(mnemonicString);
+    clearString(passphrase);
 
     // Go to Portfolio
     selectionContext.setIsWalletSelected(false);
@@ -318,24 +379,26 @@ void SeedManager::manageNewSeedCreation() {
 
     auto wallet = manageBitcoinWalletCreation(mnemonicString, passphrase, walletName);
 
-    // Save seed on an RFID tag
-    manageRfidSave(privateKey);
-
     // Save wallet to SD if any
     display.displaySubMessage("正在加载", 83);
     sdService.begin();
-    manageSdSave(wallet);
+    auto publicWalletSaved = manageSdSave(wallet);
+    auto vaultSaved = manageVaultSave(privateKey, passphrase, wallet);
+
+    // Optional additional RFID backup
+    manageRfidSave(privateKey);
 
     // Display seed save infos
-    display.displaySeedEnd(sdService.getSdState());
+    display.displaySeedEnd(publicWalletSaved, vaultSaved);
     input.waitPress();
 
     sdService.close(); // stop SD
 
     // Delete sensitive data
-    mnemonic.clear();
-    privateKey.clear();
-    mnemonicString.clear();
+    clearWords(mnemonic);
+    clearBytes(privateKey);
+    clearString(mnemonicString);
+    clearString(passphrase);
 
     // Go to Portfolio
     selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);

@@ -44,7 +44,7 @@ public:
     std::string getSegwitDerivePath();
     std::string generateBitcoinLegacyAddress(HDPublicKey xpub);
     std::string generateBitcoinSegwitAddress(HDPublicKey xpub);
-    std::string mnemonicVectorToString(std::vector<std::string> mnemonic);
+    std::string mnemonicVectorToString(const std::vector<std::string>& mnemonic);
     BIP39::word_list mnemonicStringToWordList(const std::string& mnemonicStr);
     std::vector<uint8_t> mnemonicToPrivateKey(const std::string& mnemonic);
     bool verifyMnemonic(BIP39::word_list mnemonic);
@@ -54,8 +54,24 @@ public:
     std::vector<uint8_t> mixEntropy(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2, const std::vector<uint8_t>& data3, const std::vector<uint8_t>& data4);
     std::vector<uint8_t> hashSha256(const std::vector<uint8_t>& entropy, size_t keySize);
     std::vector<uint8_t> deriveKeyFromPassphrase(const std::string& passphrase, const std::string& salt, size_t keySize);
+    std::vector<uint8_t> deriveKeyFromPassphrase(const std::string& passphrase,
+                                                 const std::vector<uint8_t>& salt,
+                                                 uint32_t iterations,
+                                                 size_t keySize);
     std::vector<uint8_t> encryptAES(const std::vector<uint8_t>& data, const std::vector<uint8_t>& key);
     std::vector<uint8_t> decryptAES(const std::vector<uint8_t>& encrypted, const std::vector<uint8_t>& key);
+    bool encryptAesGcm(const std::vector<uint8_t>& plaintext,
+                       const std::vector<uint8_t>& key,
+                       const std::vector<uint8_t>& nonce,
+                       const std::vector<uint8_t>& aad,
+                       std::vector<uint8_t>& ciphertext,
+                       std::vector<uint8_t>& tag);
+    bool decryptAesGcm(const std::vector<uint8_t>& ciphertext,
+                       const std::vector<uint8_t>& key,
+                       const std::vector<uint8_t>& nonce,
+                       const std::vector<uint8_t>& aad,
+                       const std::vector<uint8_t>& tag,
+                       std::vector<uint8_t>& plaintext);
     std::vector<uint8_t> encryptPrivateKeyWithPassphrase(const std::vector<uint8_t>& privateKey, const std::string& passphrase, const std::string& salt);
     std::vector<uint8_t> decryptPrivateKeyWithPassphrase(const std::vector<uint8_t>& encryptedPrivateKey, const std::string& passphrase, const std::string& salt);
     std::pair<std::vector<uint8_t>, std::vector<uint8_t>> splitVector(const std::vector<uint8_t>& input);

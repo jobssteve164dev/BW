@@ -62,6 +62,7 @@ void WalletController::handleWalletInformationSelection() {
     // Route to the selected wallet infos
     switch (selectedInfo) {
         case WalletInformationEnum::NONE: // when key return is hits
+            manager.clearLoadedWalletSecrets(selectedWallet);
             selectionContext.setTransactionOngoing(false);
             selectionContext.setIsWalletSelected(false); // go back to wallet selection
             break;
@@ -84,15 +85,25 @@ void WalletController::handleWalletInformationSelection() {
             );
             break;
 
-        case WalletInformationEnum::SIGNATURE:
+        case WalletInformationEnum::SIGNATURE: {
             selectionContext.setTransactionOngoing(true);
             if(selectedWallet.getMnemonic().empty()) {
-                selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SEED);
+                const auto unlockResult = manager.manageVaultUnlock(selectedWallet);
+                if (unlockResult == VaultUnlockResult::UNLOCKED) {
+                    selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
+                    selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
+                } else {
+                    // The encrypted vault is optional. A missing record, bad file,
+                    // wrong password or cancellation must not hide the existing
+                    // RFID, SD mnemonic and manual-entry signing choices.
+                    selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SEED);
+                }
             } else {
                 selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
                 selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
             }            
             break;
+        }
 
         case WalletInformationEnum::PUBLIC_KEY:
             manager.valueSelection.select(

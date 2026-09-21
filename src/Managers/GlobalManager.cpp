@@ -4,6 +4,29 @@
 #include <tuple>
 
 namespace managers {
+namespace {
+
+void clearSecret(std::string& value) {
+    volatile char* data = value.empty() ? nullptr : &value[0];
+    for (size_t index = 0; index < value.size(); ++index) {
+        data[index] = 0;
+    }
+    value.clear();
+}
+
+void clearSecrets(std::vector<std::string>& values) {
+    for (auto& value : values) {
+        clearSecret(value);
+    }
+    values.clear();
+}
+
+bool isWalletFile(const std::string& content) {
+    return content.find("Filetype: Card Wallet") != std::string::npos &&
+           content.find("Version: 2") != std::string::npos;
+}
+
+} // namespace
 
 GlobalManager::GlobalManager(CardputerView& display,
                              CardputerInput& input,
@@ -11,6 +34,8 @@ GlobalManager::GlobalManager(CardputerView& display,
                              WalletService& walletService,
                              SdService& sdService,
                              RfidService& rfidService,
+                             SettingsService& settingsService,
+                             VaultService& vaultService,
                              LedService& ledService,
                              UsbService& usbService,
                              MnemonicSelection& mnemonicSelection,
@@ -30,6 +55,8 @@ GlobalManager::GlobalManager(CardputerView& display,
       walletService(walletService),
       sdService(sdService),
       rfidService(rfidService),
+      settingsService(settingsService),
+      vaultService(vaultService),
       ledService(ledService),
       usbService(usbService),
       mnemonicSelection(mnemonicSelection),
@@ -51,6 +78,8 @@ GlobalManager::GlobalManager(const GlobalManager& other)
       walletService(other.walletService),
       sdService(other.sdService),
       rfidService(other.rfidService),
+      settingsService(other.settingsService),
+      vaultService(other.vaultService),
       ledService(other.ledService),
       usbService(other.usbService),
       mnemonicSelection(other.mnemonicSelection),
@@ -84,7 +113,7 @@ bool GlobalManager::manageSdConfirmation() {
   return true;
 }
 
-void GlobalManager::manageSdSave(Wallet wallet) {
+bool GlobalManager::manageSdSave(Wallet wallet) {
   // Wallets filepath
   auto filePath = globalContext.getFileWalletPath();
   auto defaultPath = globalContext.getfileWalletDefaultPath();
@@ -92,14 +121,210 @@ void GlobalManager::manageSdSave(Wallet wallet) {
 
   std::string fileContent;
   if (sdService.getSdState()) {
-    fileContent = sdService.readFile(finalPath.c_str()); // old content
-    walletService.loadAllWallets(fileContent); // in case it was not already loaded
-    walletService.addWallet(wallet);
+    const bool existingFile = sdService.isFile(finalPath) ||
+                              sdService.isFile(finalPath + ".bak");
+    if (existingFile && !loadWalletFileWithBackup(finalPath, fileContent)) {
+      display.displaySubMessage("现有钱包文件损坏，未覆盖", 13, 2200);
+      return false;
+    }
+    if (!walletService.addWallet(wallet)) {
+      display.displaySubMessage("钱包数量已达上限", 38, 2200);
+      return false;
+    }
     fileContent = walletService.getWalletsFileContent(); // new content with the new wallet
-    sdService.writeFile(finalPath.c_str(), fileContent); // save the new content to SD card
+    const std::vector<uint8_t> fileBytes(fileContent.begin(), fileContent.end());
+    const std::string temporaryPath = finalPath + ".tmp";
+    const std::string backupPath = finalPath + ".bak";
+    const bool saved = sdService.replaceBinaryFile(finalPath.c_str(),
+                                                   temporaryPath.c_str(),
+                                                   backupPath.c_str(),
+                                                   fileBytes);
+    if (saved && !settingsService.saveWalletPath(finalPath)) {
+      display.displaySubMessage("钱包已保存，启动路径未保存", 13, 2200);
+    }
+    return saved;
   } else {
       walletService.addWallet(wallet); // added in memory
+      return false;
   }
+}
+
+bool GlobalManager::loadWalletFileWithBackup(const std::string& path,
+                                             std::string& content) {
+  content = sdService.readFile(path.c_str());
+  if (isWalletFile(content) && walletService.validateWalletsFile(content)) {
+    return walletService.loadAllWallets(content);
+  }
+
+  const std::string backupPath = path + ".bak";
+  auto backupContent = sdService.readFile(backupPath.c_str());
+  if (!isWalletFile(backupContent) || !walletService.validateWalletsFile(backupContent)) {
+    return false;
+  }
+
+  const std::string corruptPath = path + ".bad";
+  if (!sdService.promoteBackupFile(path.c_str(), backupPath.c_str(), corruptPath.c_str())) {
+    return false;
+  }
+  content = std::move(backupContent);
+  return walletService.loadAllWallets(content);
+}
+
+void GlobalManager::initializePersistentState() {
+  auto savedPath = settingsService.loadWalletPath();
+  auto defaultPath = globalContext.getfileWalletDefaultPath();
+  auto selectedPath = savedPath.empty() ? defaultPath : savedPath;
+
+  if (!sdService.begin()) {
+    return;
+  }
+
+  std::string fileContent;
+  bool loaded = loadWalletFileWithBackup(selectedPath, fileContent);
+  if (!loaded && selectedPath != defaultPath) {
+    selectedPath = defaultPath;
+    loaded = loadWalletFileWithBackup(selectedPath, fileContent);
+  }
+
+  if (loaded) {
+    globalContext.setFileWalletPath(selectedPath);
+    if (savedPath.empty()) {
+      settingsService.saveWalletPath(selectedPath);
+    }
+    const auto vaultStatus = vaultService.inspect();
+    if (vaultStatus == VaultStatus::INVALID_FORMAT) {
+      display.displaySubMessage("钱包已加载，保险库损坏", 20, 2200);
+    } else {
+      display.displaySubMessage(
+          vaultStatus == VaultStatus::OK ? "钱包与加密备份已就绪" : "钱包已自动加载",
+          vaultStatus == VaultStatus::OK ? 23 : 45,
+          1500);
+    }
+  }
+  sdService.close();
+}
+
+bool GlobalManager::manageVaultSave(const std::vector<uint8_t>& entropy,
+                                    const std::string& passphrase,
+                                    const Wallet& wallet) {
+  if (!sdService.getSdState() || entropy.empty() || wallet.getFingerprint().empty()) {
+    return false;
+  }
+
+  if (!confirmationSelection.select("加密备份到 SD？")) {
+    return false;
+  }
+
+  std::string password;
+  if (vaultService.exists()) {
+    password = stringPromptSelection.select("输入保险库密码", 0, true, true, 8);
+  } else {
+    password = confirmStringsMatch(
+        "设置保险库密码", "再次输入密码", "两次输入不一致", 8);
+  }
+  if (password.empty()) {
+    return false;
+  }
+
+  VaultRecord record;
+  record.fingerprint = wallet.getFingerprint();
+  record.zpub = wallet.getZPub();
+  record.entropy = entropy;
+  record.passphrase = passphrase;
+  display.displaySubMessage("正在加密", 63);
+  const auto status = vaultService.upsert(password, record);
+  clearSecret(password);
+  VaultService::clearRecord(record);
+
+  if (status == VaultStatus::OK) {
+    display.displaySubMessage("加密备份已保存", 38, 2000);
+    return true;
+  }
+  if (status == VaultStatus::AUTH_FAILED) {
+    display.displaySubMessage("保险库密码错误", 38, 2500);
+  } else if (status == VaultStatus::INVALID_FORMAT) {
+    display.displaySubMessage("保险库文件损坏", 38, 2500);
+  } else {
+    display.displaySubMessage("加密备份失败", 46, 2500);
+  }
+  return false;
+}
+
+VaultUnlockResult GlobalManager::manageVaultUnlock(Wallet& wallet) {
+  if (!sdService.begin()) {
+    return VaultUnlockResult::NOT_AVAILABLE;
+  }
+  if (!vaultService.exists()) {
+    sdService.close();
+    return VaultUnlockResult::NOT_AVAILABLE;
+  }
+
+  auto password = stringPromptSelection.select("输入保险库密码", 0, true, true, 8);
+  if (password.empty()) {
+    sdService.close();
+    return VaultUnlockResult::CANCELLED_OR_FAILED;
+  }
+
+  display.displaySubMessage("正在解锁", 63);
+  std::vector<VaultRecord> records;
+  const auto status = vaultService.load(password, records);
+  clearSecret(password);
+  if (status != VaultStatus::OK) {
+    VaultService::clearRecords(records);
+    sdService.close();
+    display.displaySubMessage(
+        status == VaultStatus::AUTH_FAILED ? "密码错误或文件被篡改" : "保险库读取失败",
+        status == VaultStatus::AUTH_FAILED ? 18 : 38,
+        2500);
+    return VaultUnlockResult::CANCELLED_OR_FAILED;
+  }
+
+  auto record = std::find_if(records.begin(), records.end(), [&](const VaultRecord& item) {
+    return item.zpub == wallet.getZPub();
+  });
+  if (record == records.end()) {
+    VaultService::clearRecords(records);
+    sdService.close();
+    display.displaySubMessage("保险库中没有此钱包", 28, 2500);
+    return VaultUnlockResult::CANCELLED_OR_FAILED;
+  }
+
+  auto mnemonicWords = cryptoService.privateKeyToMnemonic(record->entropy);
+  auto mnemonic = cryptoService.mnemonicVectorToString(mnemonicWords);
+  if (mnemonic.empty()) {
+    clearSecrets(mnemonicWords);
+    VaultService::clearRecords(records);
+    sdService.close();
+    display.displaySubMessage("保险库内容无效", 46, 2500);
+    return VaultUnlockResult::CANCELLED_OR_FAILED;
+  }
+
+  const auto derivedZpub = cryptoService.deriveZPub(mnemonic, record->passphrase);
+  if (derivedZpub.toString().c_str() != wallet.getZPub()) {
+    clearSecret(mnemonic);
+    clearSecrets(mnemonicWords);
+    VaultService::clearRecords(records);
+    sdService.close();
+    display.displaySubMessage("备份与钱包不匹配", 30, 2500);
+    return VaultUnlockResult::CANCELLED_OR_FAILED;
+  }
+
+  wallet.setMnemonic(mnemonic);
+  wallet.setPassphrase(record->passphrase);
+  walletService.updateWallet(wallet);
+  selectionContext.setCurrentSelectedWallet(wallet);
+  clearSecret(mnemonic);
+  clearSecrets(mnemonicWords);
+  VaultService::clearRecords(records);
+  sdService.close();
+  display.displaySubMessage("保险库已解锁", 46, 1500);
+  return VaultUnlockResult::UNLOCKED;
+}
+
+void GlobalManager::clearLoadedWalletSecrets(Wallet wallet) {
+  wallet.clearSecrets();
+  walletService.updateWallet(wallet);
+  selectionContext.setCurrentSelectedWallet(wallet);
 }
 
 std::string GlobalManager::managePassphrase() {
@@ -116,16 +341,20 @@ std::string GlobalManager::managePassphrase() {
 
 std::string GlobalManager::confirmStringsMatch(const std::string& prompt1, 
                                                const std::string& prompt2, 
-                                               const std::string& mismatchMessage) 
+                                               const std::string& mismatchMessage,
+                                               size_t minimumLength)
 {
     std::string input1, input2;
     do {
-        input1 = stringPromptSelection.select(prompt1, 0, false, true);
-        input2 = stringPromptSelection.select(prompt2, 4, false, true);
+        clearSecret(input1);
+        clearSecret(input2);
+        input1 = stringPromptSelection.select(prompt1, 0, false, true, minimumLength);
+        input2 = stringPromptSelection.select(prompt2, 4, false, true, minimumLength);
         if (input1 != input2) {
             display.displaySubMessage(mismatchMessage, 58, 2000);
         }
     } while (input1 != input2);
+    clearSecret(input2);
     return input1;
 }
 
@@ -183,14 +412,14 @@ std::vector<uint8_t> GlobalManager::manageRfidDecryption() {
 }
 
 void GlobalManager::manageRfidSave(std::vector<uint8_t> privateKey) {
+  // Confirm RFID before showing hardware-specific instructions.
+  auto rfidConfirmation = confirmationSelection.select("另存到 RFID？");
+  if (!rfidConfirmation) { return; }
+
   // Display RFID
   display.displaySeedRfid();
   input.waitPress();
   display.displayTopBar("MIFARE 1K", false, false, false);
-
-  // Confirm RFID
-  auto rfidConfirmation = confirmationSelection.select("保存到 RFID 标签？");
-  if (!rfidConfirmation) { return; }
   
   // Init RFID
   auto initialised = rfidService.initialize();
@@ -320,15 +549,18 @@ std::vector<uint8_t> GlobalManager::manageRfidRead() {
   }
 }
 
-std::vector<uint8_t> GlobalManager::manageBitcoinSignature(std::string& psbt, std::string& mnemonic) {
+std::vector<uint8_t> GlobalManager::manageBitcoinSignature(const std::string& psbt,
+                                                           const std::string& mnemonic) {
     // Get passphrase or ask for it
-    auto passphrase = selectionContext.getCurrentSelectedWallet().getPassphrase();
-    if(passphrase.empty()) {
+    const auto selectedWallet = selectionContext.getCurrentSelectedWallet();
+    auto passphrase = selectedWallet.getPassphrase();
+    if(!selectedWallet.hasLoadedSecrets()) {
       passphrase = managePassphrase();
     }
     
     // Sign
     auto signedTransactionB64 = cryptoService.signBitcoinTransactions(psbt, mnemonic, passphrase);
+    clearSecret(passphrase);
     if(signedTransactionB64.empty()) {return {};}
 
     // Convert

@@ -1,6 +1,25 @@
 #include "FileBrowserManager.h"
 
 namespace managers {
+namespace {
+
+void clearString(std::string& value) {
+    volatile char* data = value.empty() ? nullptr : &value[0];
+    for (size_t index = 0; index < value.size(); ++index) {
+        data[index] = 0;
+    }
+    value.clear();
+}
+
+void clearBytes(std::vector<uint8_t>& value) {
+    volatile uint8_t* data = value.empty() ? nullptr : value.data();
+    for (size_t index = 0; index < value.size(); ++index) {
+        data[index] = 0;
+    }
+    value.clear();
+}
+
+} // namespace
 
 FileBrowserManager::FileBrowserManager(const GlobalManager& gm)
     : GlobalManager(gm)  // Call the base class (GlobalManager) copy constructor
@@ -54,12 +73,15 @@ bool FileBrowserManager::manageWalletFile(const std::string& currentPath) {
 
     if (fileExt == "txt") {
         auto fileContent = sdService.readFile(currentPath.c_str());
-        if (verifyWalletFile(fileContent)) {
-            walletService.loadAllWallets(fileContent);
+        if (verifyWalletFile(fileContent) && walletService.loadAllWallets(fileContent)) {
             selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
             selectionContext.setIsWalletSelected(false);
             globalContext.setFileWalletPath(currentPath);
-            display.displaySubMessage("钱包已加载", 50, 1000);
+            const bool pathSaved = settingsService.saveWalletPath(currentPath);
+            display.displaySubMessage(
+                pathSaved ? "钱包已加载" : "钱包已加载，启动路径未保存",
+                pathSaved ? 50 : 13,
+                pathSaved ? 1000 : 2200);
             return true;
         } else {
             confirmationSelection.select("钱包文件无效");
@@ -83,8 +105,9 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
 
         // Convert and get signature
         auto psbt = cryptoService.convertPSBTBinaryToBase64(fileContent);
-        auto mnemonic = selectionContext.getCurrentSelectedWallet().getMnemonic();
-        auto signedTransactionBytes = manageBitcoinSignature(psbt, mnemonic);
+        auto signingWallet = selectionContext.getCurrentSelectedWallet();
+        auto signedTransactionBytes = manageBitcoinSignature(psbt, signingWallet.getMnemonic());
+        signingWallet.clearSecrets();
         
         // Bad sign
         if (signedTransactionBytes.empty()) {
@@ -107,6 +130,7 @@ bool FileBrowserManager::manageTransactionFile(const std::string& currentPath) {
         auto signConfirmation = confirmationSelection.select("继续签名交易？");
         if (!signConfirmation) {
             // Go back to portfolio
+            clearLoadedWalletSecrets(selectionContext.getCurrentSelectedWallet());
             selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
             selectionContext.setCurrentSelectedFileType(FileTypeEnum::WALLET);
             selectionContext.setTransactionOngoing(false);
@@ -135,6 +159,8 @@ bool FileBrowserManager::manageSeedLoadingFile(const std::string& currentPath) {
 
             if (!validation) {
                 display.displaySubMessage("助记词无效", 41, 2000);
+                clearString(mnemonicString);
+                clearString(fileContent);
                 return false;
             }
 
@@ -152,6 +178,9 @@ bool FileBrowserManager::manageSeedLoadingFile(const std::string& currentPath) {
             auto zPub = cryptoService.deriveZPub(mnemonicString, passphrase);
             if (zPub.toString().c_str() != wallet.getZPub()) {
                 display.displaySubMessage("助记词与钱包不匹配", 18, 3000);
+                clearString(mnemonicString);
+                clearString(fileContent);
+                clearString(passphrase);
                 return false;
             }
 
@@ -167,9 +196,13 @@ bool FileBrowserManager::manageSeedLoadingFile(const std::string& currentPath) {
             selectionContext.setCurrentSelectedFileType(FileTypeEnum::TRANSACTION);
             display.displaySubMessage("选择 PSBT 文件", 50, 3000);
 
+            clearString(mnemonicString);
+            clearString(fileContent);
+            clearString(passphrase);
             return true;
         } else {
             confirmationSelection.select("助记词无效");
+            clearString(fileContent);
         }
     } else {
         confirmationSelection.select("不支持此文件");
@@ -191,6 +224,8 @@ bool FileBrowserManager::manageSeedRestorationFile(const std::string& currentPat
 
             if (!validation) {
                 display.displaySubMessage("助记词无效", 41, 2000);
+                clearString(mnemonicString);
+                clearString(fileContent);
                 return false;
             }
 
@@ -199,22 +234,34 @@ bool FileBrowserManager::manageSeedRestorationFile(const std::string& currentPat
             auto passphrase = managePassphrase(); // return "" in case user doesn't want passphrase
             auto privateKey = cryptoService.mnemonicToPrivateKey(mnemonicString);
 
-            // Save seed on a RFID tag
-            manageRfidSave(privateKey);
-            
             // Prompt for a wallet name
             display.displayTopBar("钱包", false, false, true);
             auto walletName = stringPromptSelection.select("输入钱包名称");
-            if (walletName.empty()) {return false;}
+            if (walletName.empty()) {
+                clearBytes(privateKey);
+                clearString(mnemonicString);
+                clearString(fileContent);
+                clearString(passphrase);
+                return false;
+            }
             auto wallet = manageBitcoinWalletCreation(mnemonicString, passphrase, walletName);
 
             // Save wallet to SD if any
             display.displaySubMessage("正在加载", 83);
             sdService.begin(); // SD card start
-            manageSdSave(wallet);
-            display.displaySeedEnd(sdService.getSdState());
+            auto publicWalletSaved = manageSdSave(wallet);
+            auto vaultSaved = manageVaultSave(privateKey, passphrase, wallet);
+
+            // Optional additional RFID backup
+            manageRfidSave(privateKey);
+            display.displaySeedEnd(publicWalletSaved, vaultSaved);
             input.waitPress();
             sdService.close(); // SD card stop
+
+            clearBytes(privateKey);
+            clearString(mnemonicString);
+            clearString(fileContent);
+            clearString(passphrase);
 
             // Go to portfolio
             selectionContext.setIsWalletSelected(false);
@@ -222,6 +269,7 @@ bool FileBrowserManager::manageSeedRestorationFile(const std::string& currentPat
             return true;
         } else {
             confirmationSelection.select("助记词无效");
+            clearString(fileContent);
         }
     } else {
         confirmationSelection.select("不支持此文件");

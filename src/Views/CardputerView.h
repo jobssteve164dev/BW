@@ -36,7 +36,12 @@ public:
     static void setBrightness(uint16_t brightness);
     static void displayTopBar(const std::string& title, bool submenu=false, bool searchBar=false, bool bitcoinIcon=false, size_t correctionOffset=0);
     static void displaySelection(const std::vector<std::string>& selectionStrings,  uint16_t selectionIndex, const std::vector<std::string>& selectionDescription={}, bool upperCase=false, bool showCurrency=false);
-    static void displayStringPrompt(std::string stringDescription, std::string stringInput, size_t offsetX=0, bool backButton=true);
+    static void displayStringPrompt(std::string stringDescription,
+                                    std::string stringInput,
+                                    size_t offsetX = 0,
+                                    bool backButton = true,
+                                    bool password = false,
+                                    size_t minimumLength = 3);
     static void displayConfirmationPrompt(std::string stringDescription);
     static void displaySubMessage(std::string message, size_t x = 10, int delayMs=0);
     static void displayMnemonicWord(std::string word, size_t index, size_t size=24, bool esc=true, bool restore=false);
@@ -50,7 +55,7 @@ public:
     static void displayPlugUsbMention();
     static void displaySeedStart();
     static void displaySeedRfid();
-    static void displaySeedEnd(bool sdCardMount);
+    static void displaySeedEnd(bool sdCardMount, bool vaultSaved);
     static void displaySeedGeneralInfos();
     static void displaySdSaveGeneralInfos();
     static void displaySeedFormatGeneralInfos();

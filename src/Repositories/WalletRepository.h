@@ -18,7 +18,8 @@ namespace repositories {
 
 class WalletRepository {
 public:
-    void loadAllWallets(const std::string& fileContent);
+    bool loadAllWallets(const std::string& fileContent);
+    bool validateWalletsFile(const std::string& fileContent);
     std::string getWalletsFileContent();
 
     bool addWallet(const Wallet& wallet);
@@ -31,6 +32,7 @@ private:
     std::vector<Wallet> wallets;
     std::vector<std::string> splitWallets(const std::string& walletData);
     models::Wallet parseWallet(const std::string& walletData);
+    bool parseWallets(const std::string& fileContent, std::vector<Wallet>& parsedWallets);
     std::vector<uint8_t> hexStringToVector(const std::string& str);
     GlobalContext& globalContext = GlobalContext::getInstance();
 };
