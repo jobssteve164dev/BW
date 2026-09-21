@@ -10,7 +10,7 @@ def test_vault_codec_native_contract(tmp_path: Path) -> None:
     compile_result = subprocess.run(
         [
             "g++",
-            "-std=c++17",
+            "-std=c++11",
             "-Wall",
             "-Wextra",
             "-Werror",

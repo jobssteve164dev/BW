@@ -4,6 +4,23 @@
 #include <limits>
 
 namespace services {
+
+// Arduino's C++11 toolchain requires storage for static constexpr members
+// when standard-library calls bind them by reference.
+constexpr uint8_t VaultCodec::FORMAT_VERSION;
+constexpr uint8_t VaultCodec::KDF_PBKDF2_SHA256;
+constexpr size_t VaultCodec::SALT_SIZE;
+constexpr size_t VaultCodec::NONCE_SIZE;
+constexpr size_t VaultCodec::TAG_SIZE;
+constexpr size_t VaultCodec::HEADER_SIZE;
+constexpr size_t VaultCodec::MAX_RECORDS;
+constexpr size_t VaultCodec::MAX_FINGERPRINT_SIZE;
+constexpr size_t VaultCodec::MAX_ZPUB_SIZE;
+constexpr size_t VaultCodec::MAX_PASSPHRASE_SIZE;
+constexpr size_t VaultCodec::MAX_CIPHERTEXT_SIZE;
+constexpr uint32_t VaultCodec::MIN_KDF_ITERATIONS;
+constexpr uint32_t VaultCodec::MAX_KDF_ITERATIONS;
+
 namespace {
 
 constexpr uint8_t MAGIC[] = {'B', 'W', 'V', '1'};
