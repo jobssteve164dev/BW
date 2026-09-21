@@ -62,6 +62,13 @@ void SelectionContext::setCurrentSelectedFileType(FileTypeEnum fileType) {
     this->currentSelectedFileType = fileType;
 }
 
+void SelectionContext::requestIndexedWalletLoad() {
+    currentSelectedFileType = FileTypeEnum::WALLET;
+    currentSelectedMode = SelectionModeEnum::LOAD_SD;
+    isWalletSelected = false;
+    isModeSelected = true;
+}
+
 bool SelectionContext::getTransactionOngoing() const {
     return transactionOngoing;
 }

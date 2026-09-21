@@ -1,4 +1,5 @@
 #include "GlobalManager.h"
+#include <Services/FileLoadRouting.h>
 #include <algorithm>
 #include <stdexcept>
 #include <tuple>
@@ -178,38 +179,75 @@ bool GlobalManager::loadWalletFileWithBackup(const std::string& path,
   return walletService.loadAllWallets(content);
 }
 
-void GlobalManager::initializePersistentState() {
+bool GlobalManager::loadIndexedWalletFile(bool userInitiated) {
   auto savedPath = settingsService.loadWalletPath();
   auto defaultPath = globalContext.getfileWalletDefaultPath();
-  auto selectedPath = savedPath.empty() ? defaultPath : savedPath;
+
+  if (userInitiated) {
+    display.displaySubMessage("正在加载", 83);
+  }
 
   if (!sdService.begin()) {
-    return;
+    sdService.close();
+    if (userInitiated) {
+      display.displaySubMessage("未找到 SD 卡", 38, 2000);
+      selectionContext.setIsModeSelected(false);
+    }
+    return false;
   }
 
   std::string fileContent;
-  bool loaded = loadWalletFileWithBackup(selectedPath, fileContent);
-  if (!loaded && selectedPath != defaultPath) {
-    selectedPath = defaultPath;
-    loaded = loadWalletFileWithBackup(selectedPath, fileContent);
-  }
+  bool walletFileFound = false;
+  const auto loadResult = FileLoadRouting::loadFirstValidWallet(
+      savedPath,
+      defaultPath,
+      [this, &fileContent, &walletFileFound](const std::string& candidatePath) {
+        walletFileFound = walletFileFound || sdService.isFile(candidatePath) ||
+                          sdService.isFile(candidatePath + ".bak");
+        return loadWalletFileWithBackup(candidatePath, fileContent);
+      },
+      [this](const std::string& selectedPath) {
+        return settingsService.saveWalletPath(selectedPath);
+      });
 
-  if (loaded) {
-    globalContext.setFileWalletPath(selectedPath);
-    if (savedPath.empty()) {
-      settingsService.saveWalletPath(selectedPath);
-    }
+  if (loadResult.loaded) {
+    globalContext.setFileWalletPath(loadResult.path);
+    selectionContext.setCurrentSelectedMode(SelectionModeEnum::PORTFOLIO);
+    selectionContext.setIsWalletSelected(false);
+    selectionContext.setCurrentSelectedFileType(FileTypeEnum::WALLET);
     const auto vaultStatus = vaultService.inspect();
     if (vaultStatus == VaultStatus::INVALID_FORMAT) {
       display.displaySubMessage("钱包已加载，保险库损坏", 20, 2200);
+    } else if (userInitiated && !loadResult.pathSaved) {
+      display.displaySubMessage("钱包已加载，启动路径未保存", 13, 2200);
     } else {
       display.displaySubMessage(
-          vaultStatus == VaultStatus::OK ? "钱包与加密备份已就绪" : "钱包已自动加载",
+          vaultStatus == VaultStatus::OK ? "钱包与加密备份已就绪" :
+          userInitiated ? "钱包已加载" : "钱包已自动加载",
           vaultStatus == VaultStatus::OK ? 23 : 45,
           1500);
     }
+    sdService.close();
+    return true;
   }
+
   sdService.close();
+  if (userInitiated) {
+    display.displaySubMessage(
+        walletFileFound ? "钱包文件损坏" : "未找到已保存的钱包",
+        walletFileFound ? 46 : 28,
+        2200);
+    selectionContext.setIsModeSelected(false);
+  }
+  return false;
+}
+
+bool GlobalManager::loadIndexedWalletFile() {
+  return loadIndexedWalletFile(true);
+}
+
+void GlobalManager::initializePersistentState() {
+  loadIndexedWalletFile(false);
 }
 
 bool GlobalManager::manageVaultSave(const std::vector<uint8_t>& entropy,

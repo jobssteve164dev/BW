@@ -1,4 +1,5 @@
 #include "AppDispatcher.h"
+#include <Services/FileLoadRouting.h>
 
 
 namespace dispatchers {
@@ -85,7 +86,10 @@ void AppDispatcher::run() {
             break;
 
         case SelectionModeEnum::LOAD_SD:
-            fileBrowserController.handleFileSelection();
+            services::FileLoadRouting::dispatch(
+                selectionContext.getCurrentSelectedFileType(),
+                [this]() { globalManager.loadIndexedWalletFile(); },
+                [this]() { fileBrowserController.handleFileSelection(); });
             break;
 
         case SelectionModeEnum::LOAD_SEED:

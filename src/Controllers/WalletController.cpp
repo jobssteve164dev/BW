@@ -12,7 +12,7 @@ void WalletController::handleWalletSelection() {
         auto confirmation = manager.confirmationSelection.select("加载钱包文件？");
 
         if (confirmation) {
-            selectionContext.setCurrentSelectedMode(SelectionModeEnum::LOAD_SD);
+            selectionContext.requestIndexedWalletLoad();
         } else {
             selectionContext.setIsModeSelected(false); // Go back to menu
         }

@@ -37,6 +37,7 @@ public:
 
     FileTypeEnum getCurrentSelectedFileType() const;
     void setCurrentSelectedFileType(FileTypeEnum fileType);
+    void requestIndexedWalletLoad();
 
 bool getTransactionOngoing() const;
     void setTransactionOngoing(bool transactionOngoing);

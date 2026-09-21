@@ -97,6 +97,7 @@ public:
     bool manageSdConfirmation();
     bool manageSdSave(Wallet wallet);
     void initializePersistentState();
+    bool loadIndexedWalletFile();
     bool manageVaultSave(const std::vector<uint8_t>& entropy,
                          const std::string& passphrase,
                          const Wallet& wallet);
@@ -123,6 +124,7 @@ public:
 
 private:
     bool loadWalletFileWithBackup(const std::string& path, std::string& content);
+    bool loadIndexedWalletFile(bool userInitiated);
 };
 
 } // namespace managers
