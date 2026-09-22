@@ -1,0 +1,240 @@
+{
+  "schemaVersion": 2,
+  "updatedAt": "2026-09-22T11:09:10.194Z",
+  "runCount": 1,
+  "indexes": {
+    "byNode": {
+      "__solo__": [
+        "__solo__-1"
+      ]
+    },
+    "byAgent": {
+      "/usr/local/bin/codex": [
+        "__solo__-1"
+      ]
+    },
+    "byFile": {},
+    "byStatus": {
+      "Failed": [
+        "__solo__-1"
+      ]
+    },
+    "byFailure": {
+      "Failure category: checkpoint_missing": [
+        "__solo__-1"
+      ],
+      "Failure reason: The interactive Agent session closed before reporting a turn checkpoint.": [
+        "__solo__-1"
+      ]
+    },
+    "byCommand": {
+      "/usr/local/bin/codex [fresh]": [
+        "__solo__-1"
+      ]
+    },
+    "byExperience": {
+      "exp-failure-a56615dd667145a0": [
+        "__solo__-1"
+      ],
+      "exp-failure-75a14deed65999db": [
+        "__solo__-1"
+      ],
+      "exp-reusable-signal-80b66d45a9aa749e": [
+        "__solo__-1"
+      ],
+      "exp-handoff-action-9f72476e075b4952": [
+        "__solo__-1"
+      ]
+    }
+  },
+  "experienceNodes": {
+    "exp-failure-a56615dd667145a0": {
+      "id": "exp-failure-a56615dd667145a0",
+      "type": "failure",
+      "centralMeaning": "Failure category: checkpoint_missing",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-1"
+      ],
+      "appliesWhen": [
+        "同一路线图入口：__solo__",
+        "后续任务出现相同失败、相同命令或相同文件区域"
+      ],
+      "doThis": "先复核已知失败原因，再决定重试、回退、补验证或调整计划。",
+      "avoidThis": "不要无视同类失败历史直接重复上一条路径。",
+      "checks": [
+        "/usr/local/bin/codex [fresh]"
+      ],
+      "stats": {
+        "uses": 0,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": ""
+      }
+    },
+    "exp-failure-75a14deed65999db": {
+      "id": "exp-failure-75a14deed65999db",
+      "type": "failure",
+      "centralMeaning": "Failure reason: The interactive Agent session closed before reporting a turn checkpoint.",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-1"
+      ],
+      "appliesWhen": [
+        "同一路线图入口：__solo__",
+        "后续任务出现相同失败、相同命令或相同文件区域"
+      ],
+      "doThis": "先复核已知失败原因，再决定重试、回退、补验证或调整计划。",
+      "avoidThis": "不要无视同类失败历史直接重复上一条路径。",
+      "checks": [
+        "/usr/local/bin/codex [fresh]"
+      ],
+      "stats": {
+        "uses": 0,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": ""
+      }
+    },
+    "exp-reusable-signal-80b66d45a9aa749e": {
+      "id": "exp-reusable-signal-80b66d45a9aa749e",
+      "type": "reusable_signal",
+      "centralMeaning": "Completion: The interactive Agent session closed before reporting a turn checkpoint.",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-1"
+      ],
+      "appliesWhen": [
+        "同一路线图入口：__solo__",
+        "后续任务出现相同目标、文件或验证需求"
+      ],
+      "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
+      "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
+      "checks": [
+        "/usr/local/bin/codex [fresh]"
+      ],
+      "stats": {
+        "uses": 0,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": ""
+      }
+    },
+    "exp-handoff-action-9f72476e075b4952": {
+      "id": "exp-handoff-action-9f72476e075b4952",
+      "type": "handoff_action",
+      "centralMeaning": "先复核上一轮失败原因：The interactive Agent session closed before reporting a turn checkpoint.",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-1"
+      ],
+      "appliesWhen": [
+        "接手同一路线图入口：__solo__",
+        "后续 Agent 需要接续上一轮未完全显式化的上下文"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "/usr/local/bin/codex [fresh]"
+      ],
+      "stats": {
+        "uses": 0,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": ""
+      }
+    }
+  },
+  "usageEdges": [
+    {
+      "runId": "__solo__-1",
+      "experienceId": "exp-failure-a56615dd667145a0",
+      "phase": "failed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-1.json",
+        "execution_logs:1",
+        "check:/usr/local/bin/codex [fresh]"
+      ],
+      "createdAt": "2026-09-22T11:09:09.070Z"
+    },
+    {
+      "runId": "__solo__-1",
+      "experienceId": "exp-failure-75a14deed65999db",
+      "phase": "failed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-1.json",
+        "execution_logs:1",
+        "check:/usr/local/bin/codex [fresh]"
+      ],
+      "createdAt": "2026-09-22T11:09:09.070Z"
+    },
+    {
+      "runId": "__solo__-1",
+      "experienceId": "exp-reusable-signal-80b66d45a9aa749e",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-1.json",
+        "execution_logs:1",
+        "check:/usr/local/bin/codex [fresh]"
+      ],
+      "createdAt": "2026-09-22T11:09:09.070Z"
+    },
+    {
+      "runId": "__solo__-1",
+      "experienceId": "exp-handoff-action-9f72476e075b4952",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-1.json",
+        "execution_logs:1",
+        "check:/usr/local/bin/codex [fresh]"
+      ],
+      "createdAt": "2026-09-22T11:09:09.070Z"
+    }
+  ],
+  "runs": [
+    {
+      "runId": "__solo__-1",
+      "executionLogId": 1,
+      "nodeId": "__solo__",
+      "runKind": "solo",
+      "agentCli": "/usr/local/bin/codex",
+      "status": "Failed",
+      "finishedAt": "2026-09-22T11:09:09.070Z",
+      "changedFiles": [],
+      "touchedFiles": [],
+      "failures": [
+        "Failure category: checkpoint_missing",
+        "Failure reason: The interactive Agent session closed before reporting a turn checkpoint."
+      ],
+      "handoffSummary": "The interactive Agent session closed before reporting a turn checkpoint. 阻塞/风险：Failure category: checkpoint_missing / The interactive Agent session closed before reporting a turn checkpoint.。"
+    }
+  ]
+}

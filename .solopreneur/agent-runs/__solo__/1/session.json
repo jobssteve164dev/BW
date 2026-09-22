@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "runId": "1",
+  "provider": "codex",
+  "workspaceRoot": "/home/ubuntu/project/BW",
+  "cliPath": "/usr/local/lib/node_modules/@openai/codex/bin/codex.js",
+  "cliVersion": "codex-cli 0.155.1",
+  "bindingNonce": "ab9738cf850411f5ca8724d0fc9884d3da6d3a4b1cf5aa0d3af0b9f6689bfd0b",
+  "createdAt": "2026-09-22T11:08:22.340Z",
+  "headRevision": 1,
+  "revisions": [
+    {
+      "revision": 1,
+      "method": "transcript_correlated_compat",
+      "contract": "compatibility",
+      "state": "preparing",
+      "createdAt": "2026-09-22T11:08:22.340Z",
+      "providerContext": {
+        "codex": {
+          "codexHome": "/home/ubuntu/.codex-runtime/coder"
+        }
+      }
+    }
+  ]
+}

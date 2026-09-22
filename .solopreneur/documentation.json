@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-22T11:05:11.098Z",
+  "updatedAt": "2026-09-22T11:09:52.983Z",
   "documents": [
     {
       "path": "README.md",
@@ -19,5 +19,14 @@
       "lastTouchedAt": "2026-09-22T11:04:21.669Z"
     }
   ],
-  "pendingReview": []
+  "pendingReview": [],
+  "lastAudit": {
+    "auditedAt": "2026-09-22T11:09:09.070Z",
+    "runKind": "solo",
+    "nodeId": "__solo__",
+    "status": "Failed",
+    "action": "none",
+    "touchedDocuments": [],
+    "pendingReviewCount": 0
+  }
 }
