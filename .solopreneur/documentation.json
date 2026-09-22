@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-09-22T11:05:11.098Z",
+  "documents": [
+    {
+      "path": "README.md",
+      "role": "direction",
+      "status": "active",
+      "solves": "说明项目是什么、服务谁、成功标准和对外表达。",
+      "lastReviewedAt": "",
+      "lastTouchedAt": "2026-09-21T19:49:59.570Z"
+    },
+    {
+      "path": ".solopreneur/README.md",
+      "role": "data_ownership",
+      "status": "active",
+      "solves": "说明项目数据、缓存、运行记录和 Git 管理边界。",
+      "lastReviewedAt": "",
+      "lastTouchedAt": "2026-09-22T11:04:21.669Z"
+    }
+  ],
+  "pendingReview": []
+}
