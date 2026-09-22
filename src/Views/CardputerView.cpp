@@ -51,7 +51,7 @@ void CardputerView::displayTopBar(const std::string& title, bool submenu, bool s
     }
 
     if (bitcoinIcon) {
-        drawBitcoinIcon(offsetX-22, 3);
+        drawBitcoinIcon(offsetX-12, 3);
     }
     drawBatteryStatus();
 }
@@ -372,18 +372,17 @@ void CardputerView::drawBatteryStatus() {
 }
 
 void CardputerView::drawBitcoinIcon(int x, int y) {
-    int radius = 22 / 2;
+    const int radius = 5;
 
     // Dessiner le cercle
     Display->fillCircle(x + radius, y + radius, radius, PRIMARY_COLOR);
     Display->drawCircle(x + radius, y + radius, radius, BACKGROUND_COLOR);
 
     // Dessiner le "B"
-    int innerRadius = radius / 2;
     Display->setTextColor(TEXT_COLOR);
     Display->setTextSize(TEXT_TINY);
     Display->setTextDatum(middle_center);
-    M5Cardputer.Display.setFont(&fonts::FreeSerifBold24pt7b);
+    M5Cardputer.Display.setFont(&fonts::Font0);
     Display->drawString("B", x + radius, y + radius + 1);
     M5Cardputer.Display.setFont(&fonts::efontCN_16);
 }
@@ -631,8 +630,8 @@ std::string CardputerView::toUpperCase(const std::string& text) {
 }
 
 void CardputerView::displayTopIcon() {
-    drawBitcoinIcon(147, 7);
-    drawSubMenuReturn(10, 15);
+    drawBitcoinIcon(3, 3);
+    drawSubMenuReturn(22, 15);
     drawBatteryStatus();
 }
 

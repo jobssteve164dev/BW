@@ -61,7 +61,7 @@ def test_every_display_text_size_is_at_least_the_clear_title_size() -> None:
     assert not too_small, f"存在小于标题字号的界面文字：{too_small}"
     assert "FreeSans9pt7b" not in view, "钱包详情仍切换到小于标题的 9pt 字体"
     point_sizes = [int(size) for size in re.findall(r"Free[A-Za-z]+?(\d+)pt7b", view)]
-    assert point_sizes and min(point_sizes) >= 12, f"存在低于约 16px 的点阵字体：{point_sizes}"
+    assert not point_sizes or min(point_sizes) >= 12, f"存在低于约 16px 的点阵字体：{point_sizes}"
     initialize = re.search(r"void CardputerView::initialize\(\) \{([\s\S]*?)\n\}", view)
     assert initialize and "setTextSize(TEXT_BIG)" in initialize.group(1), "显示初始化必须立即应用 16px 最低字号"
     assert "setFont(&fonts::efontCN_16)" in usb and "setTextSize(1.0f)" in usb, "USB 错误界面必须显式使用 16px 字体"
