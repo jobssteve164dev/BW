@@ -6,8 +6,7 @@ ModeSelection::ModeSelection(CardputerView& display, CardputerInput& input)
     : display(display), input(input) {}
 
 SelectionModeEnum ModeSelection::select() {
-    display.displayTopBar(globalContext.getAppName());
-    display.drawBitcoinIcon(20, 3);
+    display.displayTopBar(globalContext.getAppName(), false, false, true);
     display.displaySelection(getSelectionModeStrings(), selectionIndex, getSelectionModeDescriptionStrings());
     selectionIndex = 0;
     lastIndex = -1;

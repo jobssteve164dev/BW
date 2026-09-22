@@ -2,6 +2,23 @@
 
 namespace views {
 
+namespace {
+
+constexpr int kTopBarCenterY = 14;
+constexpr int kBrandIconSize = 16;
+constexpr int kBrandIconRadius = kBrandIconSize / 2;
+constexpr int kBrandIconTop = kTopBarCenterY - kBrandIconRadius;
+constexpr int kBackIconCenterX = 12;
+constexpr int kSearchIconCenterX = 164;
+constexpr int kSearchIconCenterY = 13;
+constexpr int kSearchIconSize = 14;
+constexpr int kBatteryLeft = 183;
+constexpr int kBatteryTop = 8;
+constexpr int kBatteryWidth = 18;
+constexpr int kBatteryHeight = 10;
+
+} // namespace
+
 M5GFX* CardputerView::Display = nullptr;
 
 void CardputerView::initialize() {
@@ -15,43 +32,37 @@ void CardputerView::initialize() {
 }
 
 void CardputerView::displayTopBar(const std::string& title, bool submenu, bool searchBar, bool bitcoinIcon, size_t correctionOffset) {
-    uint8_t marginX = 4;
-    uint8_t marginY = 14;
+    (void)correctionOffset;
 
     clearTopBar();
 
     if (submenu) {
-        drawSubMenuReturn(marginX+3, marginY); // for return <
+        drawSubMenuReturn(kBackIconCenterX, kTopBarCenterY);
     } else {
         Display->setTextSize(TEXT_LARGE);
     }
 
-    const int batteryLeft = Display->width() - 61;
-    const int contentLeft = submenu ? 28 : 4;
-    const int contentRight = searchBar ? batteryLeft - 22 : batteryLeft - 4;
+    const int contentLeft = bitcoinIcon ? (submenu ? 50 : 28) : (submenu ? 28 : 4);
+    const int contentRight = searchBar ? 151 : kBatteryLeft - 6;
     const int availableWidth = contentRight - contentLeft;
     const std::string requestedTitle = searchBar && title.empty() ? "输入关键词搜索" : title;
     const std::string visibleTitle = fitTextToWidth(requestedTitle, availableWidth);
-    const float offsetX = contentLeft +
-                          (availableWidth - Display->textWidth(visibleTitle.c_str())) / 2.0f -
-                          correctionOffset;
+    const int titleCenterX = contentLeft + availableWidth / 2;
     
     if (searchBar) {
         Display->setTextColor(TEXT_COLOR);
-        drawSearchIcon(batteryLeft - 17, marginY-2, 10, PRIMARY_COLOR);
+        drawSearchIcon(kSearchIconCenterX, kSearchIconCenterY, kSearchIconSize, PRIMARY_COLOR);
 
-        Display->setCursor(offsetX, marginY);
-        Display->printf("%s", visibleTitle.c_str());
+        Display->drawString(visibleTitle.c_str(), titleCenterX, kTopBarCenterY);
     } else {
         Display->setTextColor(TEXT_COLOR);
 
-        Display->setCursor(offsetX, marginY);
         Display->setTextSize(TEXT_BIG);
-        Display->printf("%s", visibleTitle.c_str());
+        Display->drawString(visibleTitle.c_str(), titleCenterX, kTopBarCenterY);
     }
 
     if (bitcoinIcon) {
-        drawBitcoinIcon(offsetX-12, 3);
+        drawBitcoinIcon(submenu ? 28 : 6, kBrandIconTop);
     }
     drawBatteryStatus();
 }
@@ -335,8 +346,8 @@ void CardputerView::drawRect(bool selected, uint8_t margin, uint16_t startY, uin
 void CardputerView::drawSubMenuReturn(uint8_t x, uint8_t y) {
     Display->setTextSize(TEXT_WIDE);
     Display->setTextColor(PRIMARY_COLOR);
-    Display->setCursor(x, y);
-    Display->printf("<");
+    Display->setTextDatum(middle_center);
+    Display->drawString("<", x, y);
 }
 
 void CardputerView::displayClearMainView(uint8_t offsetY) {
@@ -350,12 +361,12 @@ void CardputerView::clearTopBar() {
 void CardputerView::drawBatteryStatus() {
     const int rawLevel = M5Cardputer.Power.getBatteryLevel();
     const int level = services::BatteryStatus::percent(rawLevel);
-    const int x = Display->width() - 59;
-    const int y = 8;
-    const int bodyWidth = 16;
-    const int bodyHeight = 9;
+    const int x = kBatteryLeft;
+    const int y = kBatteryTop;
+    const int bodyWidth = kBatteryWidth;
+    const int bodyHeight = kBatteryHeight;
 
-    Display->fillRect(x - 2, 0, 61, TOP_BAR_HEIGHT - 5, BACKGROUND_COLOR);
+    Display->fillRect(x, 0, Display->width() - x, TOP_BAR_HEIGHT - 5, BACKGROUND_COLOR);
     Display->drawRect(x, y, bodyWidth, bodyHeight, PRIMARY_COLOR);
     Display->fillRect(x + bodyWidth, y + 2, 2, bodyHeight - 4, PRIMARY_COLOR);
     const int fillWidth = services::BatteryStatus::fillWidth(level, bodyWidth - 4);
@@ -368,11 +379,11 @@ void CardputerView::drawBatteryStatus() {
     Display->setTextSize(TEXT_BIG);
     Display->setTextColor(TEXT_COLOR);
     Display->setTextDatum(middle_center);
-    Display->drawString(label.c_str(), x + 39, 15);
+    Display->drawString(label.c_str(), 220, 15);
 }
 
 void CardputerView::drawBitcoinIcon(int x, int y) {
-    const int radius = 5;
+    const int radius = kBrandIconRadius;
 
     // Dessiner le cercle
     Display->fillCircle(x + radius, y + radius, radius, PRIMARY_COLOR);
@@ -630,8 +641,8 @@ std::string CardputerView::toUpperCase(const std::string& text) {
 }
 
 void CardputerView::displayTopIcon() {
-    drawBitcoinIcon(3, 3);
-    drawSubMenuReturn(22, 15);
+    drawBitcoinIcon(4, kBrandIconTop);
+    drawSubMenuReturn(33, kTopBarCenterY);
     drawBatteryStatus();
 }
 

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BW 顶部状态栏 · 240×135 UI 模拟</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #11100e;
+      --panel: #1b1915;
+      --line: #3a352c;
+      --muted: #a59d91;
+      --ink: #f5eddf;
+      --amber: #f8b500;
+      --screen: #000;
+      font-family: Inter, "Noto Sans SC", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); }
+    main { width: min(1180px, calc(100% - 32px)); margin: 32px auto 56px; }
+    header { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+    h1 { font-size: 24px; margin: 0 0 7px; }
+    .lead, .measure { color: var(--muted); font-size: 13px; margin: 0; }
+    .measure { font-variant-numeric: tabular-nums; }
+    .options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .option { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 16px; }
+    .option.recommended { border-color: var(--amber); box-shadow: 0 0 0 1px color-mix(in srgb, var(--amber) 40%, transparent); }
+    .option-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    h2 { font-size: 16px; margin: 0 0 4px; }
+    .tag { color: #15100a; background: var(--amber); padding: 3px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .screens { display: grid; gap: 12px; }
+    .case { display: grid; gap: 6px; }
+    .case-label { color: var(--muted); font-size: 11px; letter-spacing: .04em; }
+    .screen {
+      position: relative;
+      width: 240px;
+      height: 135px;
+      overflow: hidden;
+      background: var(--screen);
+      border: 1px solid #50483d;
+      border-radius: 2px;
+      image-rendering: pixelated;
+      justify-self: center;
+      color: #eee0ca;
+    }
+    .screen::after { content: "240×135"; position: absolute; right: 4px; bottom: 3px; color: #5d574f; font: 8px ui-monospace, monospace; }
+    .bar { position: absolute; inset: 0 0 auto; height: 30px; border-bottom: 1px solid #211d18; }
+    .title { position: absolute; top: 6px; height: 18px; display: grid; place-items: center; font: 16px/1 "Noto Sans SC", sans-serif; white-space: nowrap; }
+    .brand { position: absolute; display: grid; place-items: center; border-radius: 50%; background: var(--amber); color: #1a1100; font: 700 8px/1 ui-monospace, monospace; }
+    .back { position: absolute; top: 4px; width: 16px; height: 20px; display: grid; place-items: center; color: var(--amber); font: 20px/1 ui-monospace, monospace; }
+    .search { position: absolute; border: 1px solid var(--amber); border-radius: 50%; }
+    .search::after { content: ""; position: absolute; width: 6px; height: 1px; background: var(--amber); transform: rotate(45deg); transform-origin: left center; right: -5px; bottom: -2px; }
+    .battery { position: absolute; border: 1px solid var(--amber); }
+    .battery::before { content: ""; position: absolute; inset: 2px; right: 4px; background: #eee0ca; }
+    .battery::after { content: ""; position: absolute; width: 2px; height: 5px; right: -3px; top: 2px; background: var(--amber); }
+    .percent { position: absolute; width: 34px; text-align: right; color: #eee0ca; font: 12px/1 ui-monospace, monospace; }
+    .content { position: absolute; top: 43px; left: 8px; right: 8px; color: #8b8276; text-align: center; font-size: 12px; }
+    .row { height: 21px; border: 1px solid #403a31; border-radius: 4px; margin: 8px 0; display: grid; place-items: center; }
+    .qr { position: absolute; width: 125px; height: 125px; left: 57px; top: 5px; background:
+      linear-gradient(90deg, #eee 9px, transparent 9px) 0 0/15px 15px,
+      linear-gradient(#eee 9px, transparent 9px) 0 0/15px 15px;
+      opacity: .88;
+      border: 4px solid #eee;
+    }
+    .qr::before, .qr::after { content: ""; position: absolute; width: 28px; height: 28px; border: 7px solid #000; outline: 5px solid #eee; background: #eee; top: 7px; }
+    .qr::before { left: 7px; }
+    .qr::after { right: 7px; }
+    .spec { margin: 14px 0 0; padding: 12px; border-radius: 8px; background: #14120f; color: #c7beb2; font: 12px/1.55 ui-monospace, monospace; }
+
+    /* A: 14px icon, 2px optical gaps */
+    .a .brand { left: 6px; top: 7px; width: 14px; height: 14px; }
+    .a .back { left: 5px; }
+    .a .title { left: 28px; right: 64px; }
+    .a .with-brand .brand { left: 29px; }
+    .a .with-brand .title { left: 48px; }
+    .a .search { width: 12px; height: 12px; left: 159px; top: 7px; }
+    .a .battery { width: 16px; height: 9px; left: 181px; top: 8px; }
+    .a .percent { left: 204px; top: 8px; width: 32px; }
+    .a .screen > .brand { left: 4px; }
+    .a .screen > .back { left: 23px; }
+    .a .screen > .battery { left: 185px; }
+
+    /* B: 16px system with aligned 4px/6px grid */
+    .b .brand { left: 5.5px; top: 5.5px; width: 17px; height: 17px; font-size: 9px; }
+    .b .back { left: 4px; }
+    .b .title { left: 28px; right: 64px; }
+    .b .with-brand .brand { left: 27.5px; }
+    .b .with-brand .title { left: 50px; }
+    .b .search { width: 15px; height: 15px; left: 156.5px; top: 5.5px; }
+    .b .battery { width: 18px; height: 10px; left: 183px; top: 8px; }
+    .b .percent { left: 204px; top: 8px; width: 32px; }
+    .b .screen > .brand { left: 3.5px; }
+    .b .screen > .back { left: 25px; }
+
+    /* C: 18px icon emphasis */
+    .c .brand { left: 5px; top: 5px; width: 18px; height: 18px; font-size: 10px; }
+    .c .back { left: 4px; }
+    .c .title { left: 30px; right: 66px; }
+    .c .with-brand .brand { left: 29px; }
+    .c .with-brand .title { left: 53px; }
+    .c .search { width: 16px; height: 16px; left: 155px; top: 5px; }
+    .c .battery { width: 20px; height: 11px; left: 178px; top: 7px; }
+    .c .percent { left: 202px; top: 8px; width: 34px; }
+    .c .screen > .brand { left: 4px; }
+    .c .screen > .back { left: 27px; }
+    .c .screen > .qr { left: 53px; }
+
+    @media (max-width: 980px) { .options { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>BW 顶部状态栏比例验证</h1>
+      <p class="lead">所有画面按设备真实 240×135 坐标渲染；圆形尺寸按 M5GFX 包含中心像素的实际外接范围标注。</p>
+    </div>
+    <p class="measure">状态栏 30px · 标题 16px · 安全边距 ≥ 4px</p>
+  </header>
+  <section class="options">
+    <article class="option a">
+      <div class="option-head"><div><h2>A · 紧凑</h2><p class="lead">更多标题空间，图标仍低于标题字号。</p></div></div>
+      <div class="screens">
+        <div class="case"><span class="case-label">返回 + 品牌 + 电池</span><div class="screen"><div class="bar with-brand"><span class="back">&lt;</span><span class="brand">B</span><span class="title">钱包列表</span><i class="battery"></i><span class="percent">100%</span></div><div class="content"><div class="row">主钱包</div><div class="row">冷钱包</div></div></div></div>
+        <div class="case"><span class="case-label">返回 + 搜索 + 电池</span><div class="screen"><div class="bar"><span class="back">&lt;</span><span class="title">选择文件</span><i class="search"></i><i class="battery"></i><span class="percent">100%</span></div><div class="content"><div class="row">交易文件.psbt</div></div></div></div>
+        <div class="case"><span class="case-label">二维码覆盖层</span><div class="screen"><div class="qr"></div><span class="brand">B</span><span class="back">&lt;</span><i class="battery"></i><span class="percent">100%</span></div></div>
+      </div>
+      <p class="spec">B 14px · 搜索 12px · 电池 16×9px<br>垂直中心 14px · QR 右侧余量 3px</p>
+    </article>
+
+    <article class="option b recommended">
+      <div class="option-head"><div><h2>B · 均衡</h2><p class="lead">图标与 16px 标题同一视觉级，位置统一。</p></div><span class="tag">建议</span></div>
+      <div class="screens">
+        <div class="case"><span class="case-label">返回 + 品牌 + 电池</span><div class="screen"><div class="bar with-brand"><span class="back">&lt;</span><span class="brand">B</span><span class="title">钱包列表</span><i class="battery"></i><span class="percent">100%</span></div><div class="content"><div class="row">主钱包</div><div class="row">冷钱包</div></div></div></div>
+        <div class="case"><span class="case-label">返回 + 搜索 + 电池</span><div class="screen"><div class="bar"><span class="back">&lt;</span><span class="title">选择文件</span><i class="search"></i><i class="battery"></i><span class="percent">100%</span></div><div class="content"><div class="row">交易文件.psbt</div></div></div></div>
+        <div class="case"><span class="case-label">二维码覆盖层</span><div class="screen"><div class="qr"></div><span class="brand">B</span><span class="back">&lt;</span><i class="battery"></i><span class="percent">100%</span></div></div>
+      </div>
+      <p class="spec">B 外接 17px (r=8) · 搜索外接 15px (r=7)<br>电池 18×10px · 中心线 14px · QR 右侧余量 1px</p>
+    </article>
+
+    <article class="option c">
+      <div class="option-head"><div><h2>C · 醒目</h2><p class="lead">识别最强，但压缩长标题空间。</p></div></div>
+      <div class="screens">
+        <div class="case"><span class="case-label">返回 + 品牌 + 电池</span><div class="screen"><div class="bar with-brand"><span class="back">&lt;</span><span class="brand">B</span><span class="title">钱包列表</span><i class="battery"></i><span class="percent">100%</span></div><div class="content"><div class="row">主钱包</div><div class="row">冷钱包</div></div></div></div>
+        <div class="case"><span class="case-label">返回 + 搜索 + 电池</span><div class="screen"><div class="bar"><span class="back">&lt;</span><span class="title">选择文件</span><i class="search"></i><i class="battery"></i><span class="percent">100%</span></div><div class="content"><div class="row">交易文件.psbt</div></div></div></div>
+        <div class="case"><span class="case-label">二维码覆盖层</span><div class="screen"><div class="qr"></div><span class="brand">B</span><span class="back">&lt;</span><i class="battery"></i><span class="percent">100%</span></div></div>
+      </div>
+      <p class="spec">B 18px · 搜索 16px · 电池 20×11px<br>二维码需左移 4px，长标题空间最少</p>
+    </article>
+  </section>
+</main>
+</body>
+</html>
